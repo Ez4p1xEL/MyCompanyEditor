@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useProjectStore } from '../store/project';
-import { fileKindIcon, fileKindLabel } from '../core/fileTypes';
+import { fileKindIcon } from '../core/fileTypes';
 import { formatBytes } from '../core/format';
 import { openExportDialog } from '../core/exportDialog';
 import { pushToast } from '../core/toast';
-import { describeSampleImport } from '../core/samples';
+import { useI18n } from '../i18n';
 import IssueList from '../components/IssueList.vue';
 import type { FileKind, ProjectFile } from '../core/types';
 
 const emit = defineEmits<{ (event: 'import-request'): void }>();
 
 const store = useProjectStore();
+const { t } = useI18n();
+
+function kindLabel(kind: string): string {
+  return t(`shell.kind.${kind === 'focus-tree' ? 'focusTree' : kind === 'menus-config' ? 'menusConfig' : kind}`);
+}
 const selectedPath = ref<string | null>(null);
 
 const hasFiles = computed(() => store.hasFiles);
@@ -37,7 +42,7 @@ const fileGroups = computed<FileGroup[]>(() => {
     if (!group) {
       group = {
         kind: file.kind,
-        label: fileKindLabel(file.kind),
+        label: kindLabel(file.kind),
         icon: fileKindIcon(file.kind),
         files: [],
       };
@@ -57,7 +62,7 @@ const previewText = computed(() => {
   if (!selectedFile.value) return '';
   const lines = selectedFile.value.text.split('\n');
   const head = lines.slice(0, 80).join('\n');
-  return lines.length > 80 ? `${head}\n…（已省略剩余内容）` : head;
+  return lines.length > 80 ? `${head}\n${t('shell.overview.previewTruncated')}` : head;
 });
 const errorIssues = computed(() => (selectedFile.value?.issues ?? []).filter((issue) => issue.severity === 'error'));
 
@@ -82,9 +87,13 @@ function loadSample(): void {
   const result = store.loadSample();
   selectedPath.value = 'orders.yml';
   store.setActive('orders.yml');
-  pushToast(describeSampleImport(result), 'success');
+  const sampleParams = { imported: result.imported.length, replaced: result.replaced.length, total: result.imported.length + result.replaced.length };
+  pushToast(
+    t(result.replaced.length > 0 ? 'common.toast.sampleLoadedReplaced' : 'common.toast.sampleLoaded', sampleParams),
+    'success',
+  );
   if (result.issueCount > 0) {
-    pushToast(`示例项目有 ${result.issueCount} 条错误/警告，可在文件详情中查看`, 'warning');
+    pushToast(t('shell.overview.sampleIssueCount', { count: result.issueCount }), 'warning');
   }
 }
 
@@ -97,15 +106,15 @@ function exportSelected(): void {
   <section class="overview">
     <header class="overview-header">
       <div>
-        <h1>项目总览</h1>
+        <h1>{{ t('shell.overview.title') }}</h1>
         <p class="overview-subtitle">
-          MyCompany 插件 YAML 项目：订单、专精与箱子菜单。所有解析与校验都在浏览器本地完成。
+          {{ t('shell.overview.subtitle') }}
         </p>
       </div>
       <div class="overview-actions">
-        <button class="mc-button" data-action="overview-import" @click="requestImport">导入 YAML</button>
+        <button class="mc-button" data-action="overview-import" @click="requestImport">{{ t('shell.overview.importYaml') }}</button>
         <button class="mc-button primary" data-action="load-sample" @click="loadSample">
-          载入示例
+          {{ t('shell.overview.loadSample') }}
         </button>
       </div>
     </header>
@@ -115,61 +124,56 @@ function exportSelected(): void {
         <div class="grass-block"></div>
         <div class="dirt-block"></div>
       </div>
-      <h2>开始你的 MyCompany 项目</h2>
-      <p>
-        导入服务器 <code>plugins/MyCompany/</code> 下的
-        <code>orders.yml</code>、<code>focus/*.yml</code>、<code>menu/*.yml</code>，
-        或先载入与插件 0.8.50 语义等价的示例项目（fixtures 为上游 LF 副本；
-        其中 4 个文件无末尾换行，导出时会补单个 LF）。
-      </p>
+      <h2>{{ t('shell.overview.emptyTitle') }}</h2>
+      <p>{{ t('shell.overview.emptyText') }}</p>
       <div class="empty-actions">
         <button class="mc-button primary" data-action="empty-import" @click="requestImport">
-          导入 YAML 文件
+          {{ t('shell.overview.emptyImport') }}
         </button>
-        <button class="mc-button" data-action="load-sample" @click="loadSample">载入示例</button>
+        <button class="mc-button" data-action="load-sample" @click="loadSample">{{ t('shell.overview.loadSample') }}</button>
       </div>
       <ul class="empty-hints">
-        <li>支持点击选择或直接拖拽 .yml / .yaml 文件到窗口。</li>
-        <li>项目自动保存在浏览器 localStorage，刷新不丢失。</li>
-        <li>未知字段与无法识别的行会原样保留，并给出警告，不会静默丢失。</li>
+        <li>{{ t('shell.overview.emptyHint1') }}</li>
+        <li>{{ t('shell.overview.emptyHint2') }}</li>
+        <li>{{ t('shell.overview.emptyHint3') }}</li>
       </ul>
-      <p class="version-line">规范基准 6764e01 · MyCompany 0.8.50</p>
+      <p class="version-line">{{ t('shell.overview.versionLine') }}</p>
     </div>
 
     <template v-else>
       <div class="stats-grid">
         <div class="stat-card">
-          <span class="stat-label">文件</span><strong>{{ store.fileCount }}</strong>
+          <span class="stat-label">{{ t('shell.overview.statFiles') }}</span><strong>{{ store.fileCount }}</strong>
           <span class="stat-note">orders / focus / menu</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">订单</span><strong>{{ counts.orders }}</strong>
+          <span class="stat-label">{{ t('shell.overview.statOrders') }}</span><strong>{{ counts.orders }}</strong>
           <span class="stat-note">orders.yml</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">专精文件</span><strong>{{ counts.focus }}</strong>
+          <span class="stat-label">{{ t('shell.overview.statFocus') }}</span><strong>{{ counts.focus }}</strong>
           <span class="stat-note">focus/none.yml · focus/mob.yml</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">菜单</span><strong>{{ counts.menu }}</strong>
-          <span class="stat-note">18 个固定菜单</span>
+          <span class="stat-label">{{ t('shell.overview.statMenus') }}</span><strong>{{ counts.menu }}</strong>
+          <span class="stat-note">{{ t('shell.overview.statFixedMenus') }}</span>
         </div>
         <div class="stat-card stat-error">
-          <span class="stat-label">错误</span><strong>{{ issueCounts.error }}</strong>
-          <span class="stat-note">阻断导出</span>
+          <span class="stat-label">{{ t('shell.overview.statErrors') }}</span><strong>{{ issueCounts.error }}</strong>
+          <span class="stat-note">{{ t('shell.overview.statBlocksExport') }}</span>
         </div>
         <div class="stat-card stat-warning">
-          <span class="stat-label">警告 / 提示</span>
+          <span class="stat-label">{{ t('shell.overview.statWarnings') }}</span>
           <strong>{{ issueCounts.warning }} / {{ issueCounts.info }}</strong>
-          <span class="stat-note">不阻断，但建议核对</span>
+          <span class="stat-note">{{ t('shell.overview.statNoBlock') }}</span>
         </div>
       </div>
 
       <div class="workspace-grid">
         <div class="file-panel">
           <div class="panel-title">
-            <h2>项目文件</h2>
-            <span class="muted">共 {{ store.fileCount }} 个</span>
+            <h2>{{ t('shell.overview.projectFiles') }}</h2>
+            <span class="muted">{{ t('shell.overview.fileCount', { count: store.fileCount }) }}</span>
           </div>
           <div v-for="group in fileGroups" :key="group.kind" class="file-group">
             <div class="file-group-title">
@@ -206,36 +210,34 @@ function exportSelected(): void {
             <div class="detail-header">
               <div>
                 <h2>{{ selectedFile.path }}</h2>
-                <p class="muted">{{ fileKindLabel(selectedFile.kind) }} · {{ fileKindIcon(selectedFile.kind) }}</p>
+                <p class="muted">{{ kindLabel(selectedFile.kind) }} · {{ fileKindIcon(selectedFile.kind) }}</p>
               </div>
-              <button class="mc-button small" data-action="export-file" @click="exportSelected">导出此文件</button>
+              <button class="mc-button small" data-action="export-file" @click="exportSelected">{{ t('shell.overview.exportFile') }}</button>
             </div>
 
             <div v-if="errorIssues.length > 0" class="detail-alert">
-              <strong>解析/语法错误</strong>
+              <strong>{{ t('shell.overview.syntaxErrors') }}</strong>
               <p v-for="issue in errorIssues" :key="`${issue.code}-${issue.line}`">
-                {{ issue.message }}<template v-if="issue.line">（第 {{ issue.line }} 行<template v-if="issue.column">，第 {{ issue.column }} 列</template>）</template>
+                {{ issue.message }}<template v-if="issue.line">（<template v-if="issue.column">{{ t('shell.issue.lineColumn', { line: issue.line, column: issue.column }) }}</template><template v-else>{{ t('shell.issue.line', { line: issue.line }) }}</template>）</template>
               </p>
             </div>
 
             <dl class="detail-meta">
-              <div><dt>行数</dt><dd>{{ selectedFile.stats.lineCount }}</dd></div>
-              <div><dt>大小</dt><dd>{{ formatBytes(selectedFile.stats.byteSize) }}</dd></div>
-              <div><dt>顶层条目</dt><dd>{{ selectedFile.stats.topLevelKeyCount }}</dd></div>
-              <div><dt>问题</dt><dd>{{ selectedFile.issues.length }}</dd></div>
+              <div><dt>{{ t('shell.overview.lineCount') }}</dt><dd>{{ selectedFile.stats.lineCount }}</dd></div>
+              <div><dt>{{ t('shell.overview.size') }}</dt><dd>{{ formatBytes(selectedFile.stats.byteSize) }}</dd></div>
+              <div><dt>{{ t('shell.overview.topLevel') }}</dt><dd>{{ selectedFile.stats.topLevelKeyCount }}</dd></div>
+              <div><dt>{{ t('shell.overview.issues') }}</dt><dd>{{ selectedFile.issues.length }}</dd></div>
             </dl>
 
             <div v-if="selectedFile.kind === 'menu'" class="source-note">
-              菜单标题 / 物品名 / lore 来自 <code>lang/&lt;language&gt;.yml</code> 的
-              <code>menu.{{ menuId }}.*</code>，
-              修改菜单文件不会改变文本。
+              {{ t('shell.overview.menuSource', { menuId }) }}
             </div>
             <div v-if="selectedFile.kind === 'focus-tree' || selectedFile.kind === 'menus-config'" class="source-note legacy">
-              该文件是遗留配置，当前插件版本不会读取。
+              {{ t('shell.overview.legacySource') }}
             </div>
 
             <div v-if="topLevelKeys.length > 0" class="key-section">
-              <h3>顶层条目（{{ selectedFile.stats.topLevelKeyCount }}）</h3>
+              <h3>{{ t('shell.overview.topLevelTitle', { count: selectedFile.stats.topLevelKeyCount }) }}</h3>
               <div class="key-chips">
                 <span v-for="key in topLevelKeys.slice(0, 40)" :key="key" class="key-chip">{{ key }}</span>
                 <span v-if="topLevelKeys.length > 40" class="key-chip more">
@@ -245,18 +247,18 @@ function exportSelected(): void {
             </div>
 
             <div class="issues-section">
-              <h3>校验结果</h3>
-              <IssueList :issues="selectedFile.issues" empty-text="该文件没有发现问题" />
+              <h3>{{ t('shell.overview.validation') }}</h3>
+              <IssueList :issues="selectedFile.issues" :empty-text="t('shell.overview.noIssues')" />
             </div>
 
             <div class="raw-section">
-              <h3>原文预览</h3>
+              <h3>{{ t('shell.overview.rawPreview') }}</h3>
               <pre class="yaml-preview">{{ previewText }}</pre>
             </div>
           </template>
           <div v-else class="detail-empty">
-            <p>从左侧选择一个文件，查看解析结果、校验问题与原文。</p>
-            <p class="muted">导入 <code>orders.yml</code> 后，这里会显示全部订单 id。</p>
+            <p>{{ t('shell.overview.detailEmpty') }}</p>
+            <p class="muted">{{ t('shell.overview.detailEmptyHint') }}</p>
           </div>
         </div>
       </div>

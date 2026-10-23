@@ -1,3 +1,4 @@
+import { validationText } from './validation';
 import type { ProjectFile, ValidationIssue } from './types';
 import { isBlockingIssue } from './validation';
 import { documentsSemanticallyEqual, parseYamlText, stringifyYamlDocument } from './yaml';
@@ -26,7 +27,7 @@ export function collectExportBlockers(files: ProjectFile[]): ValidationIssue[] {
 export function groupExportBlockers(issues: ValidationIssue[]): ExportBlockerGroup[] {
   const groups = new Map<string, ValidationIssue[]>();
   for (const issue of issues) {
-    const file = issue.file || '(项目)';
+    const file = issue.file || validationText("(项目)");
     const list = groups.get(file) ?? [];
     list.push(issue);
     groups.set(file, list);
@@ -44,10 +45,10 @@ export function suggestedFilename(path: string): string {
 /** 校验用户可编辑的导出文件名。返回 null 表示合法。 */
 export function validateExportFilename(name: string): string | null {
   const trimmed = name.trim();
-  if (!trimmed) return '文件名不能为空';
-  if (/[\\/:*?"<>|]/.test(trimmed)) return '文件名不能包含路径分隔符或特殊字符';
-  if (trimmed === '.' || trimmed === '..') return '文件名不合法';
-  if (!/\.ya?ml$/i.test(trimmed)) return '文件名必须以 .yml 或 .yaml 结尾';
+  if (!trimmed) return validationText("文件名不能为空");
+  if (/[\\/:*?"<>|]/.test(trimmed)) return validationText("文件名不能包含路径分隔符或特殊字符");
+  if (trimmed === '.' || trimmed === '..') return validationText("文件名不合法");
+  if (!/\.ya?ml$/i.test(trimmed)) return validationText("文件名必须以 .yml 或 .yaml 结尾");
   return null;
 }
 
@@ -97,8 +98,8 @@ export function prepareExport(file: ProjectFile): ExportPreparation {
           line: issue?.line ?? 1,
           column: issue?.column ?? 1,
           code: 'EXPORT_BLOCKED',
-          message: issue ? `无法导出：${issue.message}` : '无法导出：YAML 解析失败',
-          fixHint: '先修正 YAML 语法错误再导出',
+          message: issue ? validationText("无法导出：{p0}", { p0: issue.message }) : validationText("无法导出：YAML 解析失败"),
+          fixHint: validationText("先修正 YAML 语法错误再导出"),
           blocking: true,
         },
       ],
@@ -116,8 +117,8 @@ export function prepareExport(file: ProjectFile): ExportPreparation {
           file: file.path,
           path: '$',
           code: 'EXPORT_SELF_CHECK',
-          message: '导出内容回读校验失败：生成结果与源文件语义不一致，已阻止导出',
-          fixHint: '请保留原文件并反馈该问题；可先仅导出其他文件',
+          message: validationText("导出内容回读校验失败：生成结果与源文件语义不一致，已阻止导出"),
+          fixHint: validationText("请保留原文件并反馈该问题；可先仅导出其他文件"),
           blocking: true,
         },
       ],

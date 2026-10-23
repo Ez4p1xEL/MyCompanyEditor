@@ -15,8 +15,14 @@ import ToastHost from './components/ToastHost.vue';
 import { getFeature, getNavItems } from './features/registry';
 import { useProjectStore } from './store/project';
 import { pushToast } from './core/toast';
+import { onLocaleChange, useI18n } from './i18n';
 
 const store = useProjectStore();
+const { t } = useI18n();
+const unsubscribeLocale = onLocaleChange(() => {
+  // 语言切换只触发重新校验，不修改文件内容；校验器可据此刷新本地化消息。
+  store.validateAll();
+});
 const navItems = getNavItems();
 const activeFeatureId = ref(store.activeFeatureId || 'project');
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -51,7 +57,7 @@ function openFilePicker(): void {
 async function ingestFiles(files: File[]): Promise<void> {
   const yamlFiles = files.filter((file) => /\.ya?ml$/i.test(file.name));
   if (yamlFiles.length === 0) {
-    pushToast('请选择 .yml / .yaml 文件', 'warning');
+    pushToast(t('shell.app.invalidFiles'), 'warning');
     return;
   }
   const ignored = files.length - yamlFiles.length;
@@ -66,19 +72,22 @@ async function ingestFiles(files: File[]): Promise<void> {
     const result = store.importFiles(inputs);
     if (result.imported.length > 0) {
       const replaced =
-        result.replaced.length > 0 ? `，替换 ${result.replaced.length} 个同名文件` : '';
-      pushToast(`已导入 ${result.imported.length} 个文件${replaced}`, 'success');
+        result.replaced.length > 0 ? t('shell.app.replacedSuffix', { count: result.replaced.length }) : '';
+      pushToast(t('shell.app.imported', { count: result.imported.length }) + replaced, 'success');
     }
     if (result.skipped.length > 0) {
-      pushToast(`跳过 ${result.skipped.length} 个文件：${result.skipped[0]?.reason ?? ''}`, 'warning');
+      pushToast(
+        t('shell.app.skipped', { count: result.skipped.length, reason: result.skipped[0]?.reason ?? '' }),
+        'warning',
+      );
     }
-    if (ignored > 0) pushToast(`忽略 ${ignored} 个非 YAML 文件`, 'warning');
+    if (ignored > 0) pushToast(t('shell.app.ignored', { count: ignored }), 'warning');
     if (result.issueCount > 0) {
-      pushToast(`校验发现 ${result.issueCount} 条错误/警告，请在项目总览查看`, 'warning');
+      pushToast(t('shell.app.issues', { count: result.issueCount }), 'warning');
     }
   } catch (error) {
     console.error('[MyCompanyEditor] 读取文件失败', error);
-    pushToast('读取文件失败，请重试', 'error');
+    pushToast(t('shell.app.readFailed'), 'error');
   }
 }
 
@@ -124,6 +133,7 @@ watch(() => store.projectSignature, scheduleSave);
 watch(() => store.activePath, scheduleSave);
 
 onBeforeUnmount(() => {
+  unsubscribeLocale();
   if (saveTimer !== undefined) window.clearTimeout(saveTimer);
   saveTimer = undefined;
 });
@@ -168,8 +178,8 @@ onBeforeUnmount(() => {
     <div v-if="dragging" class="drop-overlay">
       <div class="drop-card">
         <span class="drop-icon" aria-hidden="true">📥</span>
-        <strong>松开以导入 YAML 文件</strong>
-        <span class="muted">支持 orders.yml / focus/*.yml / menu/*.yml</span>
+        <strong>{{ t('shell.app.dropTitle') }}</strong>
+        <span class="muted">{{ t('shell.app.dropHint') }}</span>
       </div>
     </div>
   </div>

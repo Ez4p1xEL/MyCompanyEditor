@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import type {
   FeatureComponentLoader,
   FeatureModule,
@@ -44,7 +45,9 @@ const DISCOVERED = collectDiscoveredModules();
 /** 项目总览是壳自带视图（t10 可用 src/features/project/index.ts 覆盖）。 */
 const BUILTIN_PROJECT: FeatureModule = {
   id: 'project',
-  title: '项目总览',
+  get title() {
+    return t('shell.nav.project');
+  },
   icon: '🏠',
   order: 0,
   description: '项目文件、校验结果与导入导出入口',

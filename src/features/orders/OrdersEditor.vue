@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { ordersText as tx } from './ordersConstants';
 import { computed, nextTick, reactive, ref, shallowRef, watch } from 'vue';
 import type { Document } from 'yaml';
 import { useProjectStore } from '../../store/project';
+import { useLocale } from '../../i18n';
 import { pushToast } from '../../core/toast';
 import { downloadTextFile } from '../../core/download';
 import { hashFileText } from '../../core/projectFile';
@@ -72,6 +74,12 @@ const ENTITY_OPTIONS = [...ENTITY_TYPE_NAMES].sort();
 const FEEDABLE_OPTIONS = [...FEEDABLE_ANIMALS].sort();
 
 const store = useProjectStore();
+const { locale } = useLocale();
+
+function countLabel(count: number, kind: 'quest' | 'reward'): string {
+  if (locale.value === 'zh-CN') return `${count} ${kind === 'quest' ? '任务' : '奖励'}`;
+  return `${count} ${kind}${count === 1 ? '' : 's'}`;
+}
 const file = computed(() => store.files[FILE_PATH] ?? null);
 const doc = shallowRef<Document | null>(null);
 const model = ref<OrdersModel>(buildOrdersModel(null, ''));
@@ -240,15 +248,15 @@ function selectOrder(id: string): void {
 
 function createOrder(): void {
   if (structureBroken.value) {
-    pushToast('orders.yml 顶层不是订单映射，已阻止新建（避免覆盖原内容）', 'error');
+    pushToast(tx('orders.yml 顶层不是订单映射，已阻止新建（避免覆盖原内容）'), 'error');
     return;
   }
   if (!doc.value) doc.value = createEmptyOrdersDocument();
   const id = nextOrderId('order');
-  addOrder(doc.value, id, defaultOrderPlain('新订单'));
+  addOrder(doc.value, id, defaultOrderPlain(tx('新订单')));
   markNewOrder(id);
   persist({ rebuild: true, selected: id, dirtyOrder: id });
-  pushToast(`已新建订单 ${id}`, 'success');
+  pushToast(tx('已新建订单 {id}', { id }), 'success');
   void nextTick(() => focusField('order-id-input'));
 }
 
@@ -257,23 +265,23 @@ function copySelectedOrder(): void {
   if (!order || !doc.value) return;
   const newId = uniqueOrderId(`${order.id}_copy`);
   if (!duplicateOrder(doc.value, order.id, newId)) {
-    pushToast('复制失败：源订单结构异常', 'error');
+    pushToast(tx('复制失败：源订单结构异常'), 'error');
     return;
   }
   markNewOrder(newId);
   persist({ rebuild: true, selected: newId, dirtyOrder: newId });
-  pushToast(`已复制为 ${newId}`, 'success');
+  pushToast(tx('已复制为 {id}', { id: newId }), 'success');
 }
 
 function removeSelectedOrder(): void {
   const order = selectedOrder.value;
   if (!order || !doc.value) return;
-  if (!window.confirm(`确定删除订单 “${order.id}”？已有玩家的进度会变成孤儿记录。`)) return;
+  if (!window.confirm(tx('确定删除订单 “{id}”？已有玩家的进度会变成孤儿记录。', { id: order.id }))) return;
   deleteOrder(doc.value, order.id);
   forgetNewOrder(order.id);
   dirtyOrders.delete(order.id);
   persist({ rebuild: true });
-  pushToast(`已删除订单 ${order.id}`, 'info');
+  pushToast(tx('已删除订单 {id}', { id: order.id }), 'info');
 }
 
 function applyOrderRename(): void {
@@ -295,7 +303,7 @@ function applyOrderRename(): void {
   }
   renameError.value = result.warning ?? '';
   if (!renameOrder(doc.value, order.id, trimmed)) {
-    renameError.value = '重命名失败：ID 已存在或该键不是标量';
+    renameError.value = tx('重命名失败：ID 已存在或该键不是标量');
     return;
   }
   renameNewOrder(order.id, trimmed);
@@ -304,7 +312,7 @@ function applyOrderRename(): void {
     dirtyOrders.add(trimmed);
   }
   persist({ rebuild: true, selected: trimmed, dirtyOrder: trimmed });
-  pushToast(`订单已重命名为 ${trimmed}`, 'success');
+  pushToast(tx('订单已重命名为 {id}', { id: trimmed }), 'success');
 }
 
 function focusField(name: string): void {
@@ -353,14 +361,14 @@ function createQuest(): void {
   const order = selectedOrder.value;
   if (!order || !doc.value) return;
   if (order.questKind !== 'map' && order.questKind !== 'missing') {
-    pushToast('当前 quest 段不是映射，请先修复或重新导入', 'warning');
+    pushToast(tx('当前 quest 段不是映射，请先修复或重新导入'), 'warning');
     return;
   }
   const id = nextQuestId(order);
   addQuest(doc.value, order.id, id, { type: 'break_block', item: 'stone', amount: 1 });
   markNewQuest(order.id, id);
   persist({ rebuild: true, dirtyOrder: order.id });
-  pushToast(`已添加任务 ${id}`, 'success');
+  pushToast(tx('已添加任务 {id}', { id }), 'success');
 }
 
 function removeQuest(quest: QuestEntry): void {
@@ -396,7 +404,7 @@ function onQuestIdChange(quest: QuestEntry, event: Event): void {
     return;
   }
   if (!renameQuest(doc.value, order.id, quest.id, value)) {
-    pushToast('重命名失败：quest ID 已存在或结构异常', 'error');
+    pushToast(tx('重命名失败：quest ID 已存在或结构异常'), 'error');
     input.value = quest.id;
     return;
   }
@@ -524,7 +532,7 @@ function onRewardTypeChange(reward: RewardEntry, event: Event): void {
   const args = defaultRewardArgs(type);
   const raw = composeReward(type, args);
   if (!setRewardLine(doc.value, order.id, reward.index, raw)) {
-    pushToast('修改奖励类型失败：列表结构异常', 'error');
+    pushToast(tx('修改奖励类型失败：列表结构异常'), 'error');
     return;
   }
   persist({ rebuild: true, dirtyOrder: order.id });
@@ -557,11 +565,11 @@ function addRewardLine(): void {
   if (!order || !doc.value) return;
   const existing = order.rewardKind;
   if (existing && existing !== 'seq' && existing !== 'missing') {
-    pushToast('当前 reward 段不是列表，请先修复或使用原文模式', 'warning');
+    pushToast(tx('当前 reward 段不是列表，请先修复或使用原文模式'), 'warning');
     return;
   }
   if (!addReward(doc.value, order.id, 'item;stone;1')) {
-    pushToast('添加奖励失败', 'error');
+    pushToast(tx('添加奖励失败'), 'error');
     return;
   }
   persist({ rebuild: true, dirtyOrder: order.id });
@@ -604,12 +612,12 @@ function applyRawRewards(): void {
   const order = selectedOrder.value;
   if (!order || !doc.value) return;
   if (rawDisabled(order)) {
-    rawError.value = '存在非字符串奖励行，原文模式不可用（避免丢失数据）';
+    rawError.value = tx('存在非字符串奖励行，原文模式不可用（避免丢失数据）');
     return;
   }
   const lines = rawDraft.value.split('\n').filter((line) => line.trim() !== '');
   if (!setRewards(doc.value, order.id, lines)) {
-    rawError.value = '当前 reward 段不是列表，无法应用原文';
+    rawError.value = tx('当前 reward 段不是列表，无法应用原文');
     return;
   }
   rawMode.value = false;
@@ -670,7 +678,7 @@ function isLastReward(reward: RewardEntry): boolean {
 }
 
 function severityLabel(severity: OrdersIssue['severity']): string {
-  return severity === 'error' ? '错误' : severity === 'warning' ? '警告' : '提示';
+  return severity === 'error' ? tx('错误') : severity === 'warning' ? tx('警告') : tx('提示');
 }
 
 function locateIssue(issue: OrdersIssue): void {
@@ -709,7 +717,7 @@ function locateIssue(issue: OrdersIssue): void {
 }
 
 function errorLine(issue: OrdersIssue): string {
-  return issue.line ? `第 ${issue.line} 行` : '';
+  return issue.line ? tx('第 {line} 行', { line: issue.line }) : '';
 }
 
 function triggerImport(): void {
@@ -725,8 +733,8 @@ async function onImportFilePicked(event: Event): Promise<void> {
   const parsed = parseYamlText(text);
   if (!parsed.ok || !parsed.doc) {
     importError.value = parsed.error
-      ? `第 ${parsed.error.line} 行第 ${parsed.error.column} 列：${parsed.error.message}`
-      : 'YAML 解析失败';
+      ? tx('第 {line} 行第 {column} 列：{message}', { line: parsed.error.line, column: parsed.error.column, message: parsed.error.message })
+      : tx('YAML 解析失败');
     pendingImport.value = null;
     importDialogOpen.value = true;
     return;
@@ -745,7 +753,7 @@ function applyImportReplace(text: string): void {
   loadFromText(text, true);
   importDialogOpen.value = false;
   pendingImport.value = null;
-  pushToast('已替换 orders.yml', 'success');
+  pushToast(tx('已替换 orders.yml'), 'success');
 }
 
 function replaceImport(): void {
@@ -758,8 +766,8 @@ function mergeImport(): void {
   const imported = parseOrdersFile(pendingImport.value);
   if (!imported.doc) {
     importError.value = imported.parsed.error
-      ? `第 ${imported.parsed.error.line} 行第 ${imported.parsed.error.column} 列：${imported.parsed.error.message}`
-      : '导入文件无法解析';
+      ? tx('第 {line} 行第 {column} 列：{message}', { line: imported.parsed.error.line, column: imported.parsed.error.column, message: imported.parsed.error.message })
+      : tx('导入文件无法解析');
     return;
   }
   if (!doc.value) {
@@ -770,7 +778,7 @@ function mergeImport(): void {
   importDialogOpen.value = false;
   pendingImport.value = null;
   persist({ rebuild: true, dirtyOrder: selectedId.value ?? undefined });
-  pushToast(`已合并 ${merged.merged} 个订单（同名以导入文件为准）`, 'success');
+  pushToast(tx('已合并 {count} 个订单（同名以导入文件为准）', { count: merged.merged }), 'success');
 }
 
 function closeImportDialog(): void {
@@ -788,19 +796,19 @@ function createEmptyProject(): void {
   model.value = buildOrdersModel(empty, text);
   selectedId.value = null;
   hasLoadedOnce.value = true;
-  pushToast('已创建空白 orders.yml，请新建订单', 'info');
+  pushToast(tx('已创建空白 orders.yml，请新建订单'), 'info');
 }
 
 function exportOrders(): void {
   const currentFile = file.value;
   if (!currentFile) return;
   if (!doc.value) {
-    pushToast('YAML 语法错误，已阻止导出', 'error');
+    pushToast(tx('YAML 语法错误，已阻止导出'), 'error');
     return;
   }
   const blocking = blockingIssues.value;
   if (blocking.length > 0) {
-    pushToast(`存在 ${blocking.length} 条错误/阻断项，已阻止导出`, 'error');
+    pushToast(tx('存在 {count} 条错误/阻断项，已阻止导出', { count: blocking.length }), 'error');
     showIssues.value = true;
     locateIssue(blocking[0]);
     return;
@@ -815,18 +823,18 @@ function exportOrders(): void {
     !reparsed.doc ||
     !documentsSemanticallyEqual(original.doc, reparsed.doc)
   ) {
-    pushToast('导出内容回读校验失败，已阻止导出', 'error');
+    pushToast(tx('导出内容回读校验失败，已阻止导出'), 'error');
     return;
   }
   downloadTextFile('orders.yml', text);
   store.markExported(FILE_PATH);
   dirtyOrders.clear();
-  pushToast('已导出 orders.yml（修改后需重启服务器生效）', 'success');
+  pushToast(tx('已导出 orders.yml（修改后需重启服务器生效）'), 'success');
 }
 
 function issueSummary(): string {
-  const parts = [`错误 ${blockingIssues.value.length}`];
-  if (warningIssues.value.length) parts.push(`警告 ${warningIssues.value.length}`);
+  const parts = [tx('错误 {count}', { count: blockingIssues.value.length })];
+  if (warningIssues.value.length) parts.push(tx('警告 {count}', { count: warningIssues.value.length }));
   return parts.join(' · ');
 }
 
@@ -839,61 +847,46 @@ function customRewardType(reward: RewardEntry): boolean {
   <div ref="rootRef" class="orders-editor" data-testid="orders-editor">
     <header class="orders-header">
       <div class="orders-title">
-        <h1>订单编辑器</h1>
+        <h1>{{ tx("订单编辑器") }}</h1>
         <p class="orders-subtitle">
-          <code>orders.yml</code> · {{ model.orders.length }} 个订单 · 修改后需重启服务器生效
-        </p>
+          <code>orders.yml</code> · {{ model.orders.length }} {{ tx("个订单 · 修改后需重启服务器生效") }} </p>
       </div>
       <div class="orders-header-actions">
-        <span v-if="fileDirty" class="dirty-pill">● 未导出修改</span>
-        <span v-if="selectedDirty" class="dirty-pill order-dirty">● 当前订单未保存导出</span>
-        <button class="mc-button" data-action="orders-import" @click="triggerImport">
-          导入 orders.yml
-        </button>
+        <span v-if="fileDirty" class="dirty-pill">{{ tx("● 未导出修改") }}</span>
+        <span v-if="selectedDirty" class="dirty-pill order-dirty">{{ tx("● 当前订单未保存导出") }}</span>
+        <button class="mc-button" data-action="orders-import" @click="triggerImport"> {{ tx("导入 orders.yml") }} </button>
         <button
           class="mc-button primary"
           data-action="orders-export"
           :disabled="!doc || blockingIssues.length > 0"
           :title="
             blockingIssues.length > 0
-              ? `存在 ${blockingIssues.length} 条错误，导出被阻止`
-              : '导出 orders.yml'
+              ? tx('存在 {count} 条错误，导出被阻止', { count: blockingIssues.length })
+              : tx('导出 orders.yml')
           "
           @click="exportOrders"
-        >
-          导出 orders.yml
-        </button>
+        > {{ tx("导出 orders.yml") }} </button>
       </div>
     </header>
 
     <div v-if="!file" class="orders-empty">
       <div class="orders-empty-icon" aria-hidden="true">📋</div>
-      <h2>还没有 orders.yml</h2>
-      <p>
-        导入服务器 <code>plugins/MyCompany/orders.yml</code>，或从空白文件开始。
-        所有解析与校验都在浏览器本地完成。
-      </p>
+      <h2>{{ tx("还没有 orders.yml") }}</h2>
+      <p> {{ tx("导入服务器") }} <code>plugins/MyCompany/orders.yml</code>{{ tx("，或从空白文件开始。 所有解析与校验都在浏览器本地完成。") }} </p>
       <div class="orders-empty-actions">
-        <button class="mc-button primary" data-action="orders-empty-import" @click="triggerImport">
-          导入 orders.yml
-        </button>
-        <button class="mc-button" data-action="orders-empty-create" @click="createEmptyProject">
-          新建空白 orders.yml
-        </button>
+        <button class="mc-button primary" data-action="orders-empty-import" @click="triggerImport"> {{ tx("导入 orders.yml") }} </button>
+        <button class="mc-button" data-action="orders-empty-create" @click="createEmptyProject"> {{ tx("新建空白 orders.yml") }} </button>
       </div>
-      <p class="muted">
-        也可在「项目总览」点击“载入示例”，再回到订单页查看插件默认订单。
-      </p>
+      <p class="muted"> {{ tx("也可在「项目总览」点击“载入示例”，再回到订单页查看插件默认订单。") }} </p>
     </div>
 
     <template v-else>
       <div v-if="syntaxIssue" class="orders-syntax" role="alert">
-        <strong>YAML 语法错误，编辑器已锁定（禁止导出）</strong>
+        <strong>{{ tx("YAML 语法错误，编辑器已锁定（禁止导出）") }}</strong>
         <p>
-          {{ errorLine(syntaxIssue) }}第 {{ syntaxIssue.line ?? 1 }} 行第
-          {{ syntaxIssue.column ?? 1 }} 列：{{ syntaxIssue.message }}
+          {{ errorLine(syntaxIssue) }}{{ tx("第") }} {{ syntaxIssue.line ?? 1 }} {{ tx("行第") }} {{ syntaxIssue.column ?? 1 }} {{ tx("列：") }}{{ syntaxIssue.message }}
         </p>
-        <p class="muted">请重新导入修复后的文件，或在文本编辑器中修正语法。</p>
+        <p class="muted">{{ tx("请重新导入修复后的文件，或在文本编辑器中修正语法。") }}</p>
       </div>
 
       <div v-else class="orders-layout">
@@ -903,8 +896,8 @@ function customRewardType(reward: RewardEntry): boolean {
               v-model="search"
               class="mc-input"
               type="search"
-              placeholder="搜索订单 ID / label"
-              aria-label="搜索订单"
+              :placeholder="tx('搜索订单 ID / label')"
+              :aria-label="tx('搜索订单')"
               data-field="orders-search"
             />
           </div>
@@ -913,14 +906,12 @@ function customRewardType(reward: RewardEntry): boolean {
               class="mc-button small primary"
               data-action="orders-new"
               :disabled="structureBroken"
-              :title="structureBroken ? '顶层结构非法，请先导入修复后的 orders.yml' : '新建订单'"
+              :title="structureBroken ? tx('顶层结构非法，请先导入修复后的 orders.yml') : tx('新建订单')"
               @click="createOrder"
-            >
-              新建订单
-            </button>
+            > {{ tx("新建订单") }} </button>
             <span class="muted">{{ filteredOrders.length }} / {{ model.orders.length }}</span>
           </div>
-          <div class="orders-list" role="listbox" aria-label="订单列表">
+          <div class="orders-list" role="listbox" :aria-label="tx('订单列表')">
             <button
               v-for="order in filteredOrders"
               :key="order.id"
@@ -934,32 +925,31 @@ function customRewardType(reward: RewardEntry): boolean {
               :aria-selected="order.id === selectedId"
               :data-order-id="order.id"
               :data-testid="`order-row-${order.id}`"
-              :aria-label="`${order.id} ${order.label || '缺少 label'}`"
+              :aria-label="tx('{id} {label}', { id: order.id, label: order.label || tx('缺少 label') })"
               @click="selectOrder(order.id)"
             >
               <span class="order-row-main">
                 <span class="order-row-id">{{ order.id }}</span>
-                <span class="order-row-label">{{ order.label || '（缺少 label）' }}</span>
+                <span class="order-row-label">{{ order.label || tx('（缺少 label）') }}</span>
               </span>
               <span class="order-row-meta">
-                <span class="order-row-counts">{{ order.quests.length }} 任务 · {{ order.rewards.length }} 奖励</span>
+                <span class="order-row-counts">{{ countLabel(order.quests.length, 'quest') }} · {{ countLabel(order.rewards.length, 'reward') }}</span>
                 <span v-if="orderStats(order).errors" class="badge error">
                   {{ orderStats(order).errors }}
                 </span>
                 <span v-if="orderStats(order).warnings" class="badge warning">
                   {{ orderStats(order).warnings }}
                 </span>
-                <span v-if="dirtyOrders.has(order.id)" class="badge dirty" title="未导出">●</span>
+                <span v-if="dirtyOrders.has(order.id)" class="badge dirty" :title="tx('未导出')">●</span>
               </span>
             </button>
             <p v-if="filteredOrders.length === 0" class="orders-list-empty">
-              {{ model.orders.length === 0 ? '还没有订单，点击“新建订单”。' : '没有匹配的订单。' }}
+              {{ model.orders.length === 0 ? tx('还没有订单，点击“新建订单”。') : tx('没有匹配的订单。') }}
             </p>
           </div>
           <div class="orders-list-footer">
-            <button class="issue-toggle" data-action="orders-toggle-issues" @click="showIssues = !showIssues">
-              校验问题：{{ issueSummary() }}
-              <span class="muted">（点击定位）</span>
+            <button class="issue-toggle" data-action="orders-toggle-issues" @click="showIssues = !showIssues"> {{ tx("校验问题：") }}{{ issueSummary() }}
+              <span class="muted">{{ tx("（点击定位）") }}</span>
             </button>
           </div>
         </aside>
@@ -967,10 +957,10 @@ function customRewardType(reward: RewardEntry): boolean {
         <section class="order-form-panel">
           <div v-if="showIssues" class="orders-issues-panel">
             <div class="issues-panel-head">
-              <strong>校验问题</strong>
-              <button class="link-button" @click="showIssues = false">收起</button>
+              <strong>{{ tx("校验问题") }}</strong>
+              <button class="link-button" @click="showIssues = false">{{ tx("收起") }}</button>
             </div>
-            <p v-if="issues.length === 0" class="muted">没有发现问题。</p>
+            <p v-if="issues.length === 0" class="muted">{{ tx("没有发现问题。") }}</p>
             <button
               v-for="(issue, index) in issues"
               :key="`${issue.code}-${index}`"
@@ -981,80 +971,75 @@ function customRewardType(reward: RewardEntry): boolean {
               <span class="issue-sev">{{ severityLabel(issue.severity) }}</span>
               <span class="issue-code">{{ issue.code }}</span>
               <span class="issue-msg">{{ issue.message }}</span>
+              <span v-if="issue.fixHint" class="issue-fix">{{ issue.fixHint }}</span>
               <span class="issue-loc">{{ errorLine(issue) }}</span>
             </button>
           </div>
 
           <div v-if="!selectedOrder" class="order-select-hint">
-            <p>从左侧选择订单，或点击“新建订单”。</p>
+            <p>{{ tx("从左侧选择订单，或点击“新建订单”。") }}</p>
           </div>
 
           <div v-else class="order-form">
             <div class="order-form-head">
               <label class="field id-field">
-                <span class="field-label">订单 ID</span>
+                <span class="field-label">{{ tx("订单 ID") }}</span>
                 <input
                   v-model="renameDraft"
                   class="mc-input"
                   data-field="order-id-input"
                   spellcheck="false"
-                  aria-label="订单 ID"
+                  :aria-label="tx('订单 ID')"
                   @change="applyOrderRename"
                   @keydown.enter.prevent="applyOrderRename"
                 />
               </label>
               <span v-if="renameError" class="field-error">{{ renameError }}</span>
               <div class="order-head-actions">
-                <button class="mc-button small" data-action="orders-copy" @click="copySelectedOrder">
-                  复制
-                </button>
-                <button class="mc-button small danger" data-action="orders-delete" @click="removeSelectedOrder">
-                  删除
-                </button>
+                <button class="mc-button small" data-action="orders-copy" @click="copySelectedOrder"> {{ tx("复制") }} </button>
+                <button class="mc-button small danger" data-action="orders-delete" @click="removeSelectedOrder"> {{ tx("删除") }} </button>
               </div>
             </div>
 
             <section class="form-section">
-              <h2>基本信息</h2>
+              <h2>{{ tx("基本信息") }}</h2>
               <label class="field">
-                <span class="field-label">label（支持 &amp; 颜色码）</span>
+                <span class="field-label">{{ tx("label（支持 & 颜色码）") }}</span>
                 <input
                   class="mc-input"
                   :value="selectedOrder.label"
                   spellcheck="false"
-                  aria-label="订单 label"
+                  :aria-label="tx('订单 label')"
                   data-field="order-label"
                   @input="onLabelInput"
                 />
               </label>
               <div class="color-preview-row">
-                <span class="field-label">预览</span>
+                <span class="field-label">{{ tx("预览") }}</span>
                 <ColorPreview :text="selectedOrder.label" />
               </div>
 
               <div class="field">
-                <span class="field-label">description（多行，每行一条）</span>
+                <span class="field-label">{{ tx("description（多行，每行一条）") }}</span>
                 <div class="description-list">
                   <div v-for="(line, index) in selectedOrder.description" :key="index" class="description-row">
                     <input
                       class="mc-input"
                       :value="line"
                       spellcheck="false"
-                      :aria-label="`description 第 ${index + 1} 行`"
+                      :aria-label="tx('description 第 {line} 行', { line: index + 1 })"
                       @input="onDescriptionInput(index, $event)"
                     />
                     <button
                       class="icon-button"
                       type="button"
-                      aria-label="删除该描述行"
+                      :aria-label="tx('删除该描述行')"
                       @click="removeDescriptionLine(index)"
                     >
                       ×
                     </button>
                   </div>
-                  <button class="mc-button small" type="button" data-action="orders-add-description" @click="addDescriptionLine">
-                    添加描述行
-                  </button>
+                  <button class="mc-button small" type="button" data-action="orders-add-description" @click="addDescriptionLine"> {{ tx("添加描述行") }} </button>
                 </div>
               </div>
 
@@ -1068,20 +1053,17 @@ function customRewardType(reward: RewardEntry): boolean {
                 >
                   <strong>{{ issue.code }}</strong>
                   {{ issue.message }}
+                  <span v-if="issue.fixHint" class="issue-fix">{{ issue.fixHint }}</span>
                 </button>
               </div>
             </section>
 
             <section class="form-section">
               <div class="section-head">
-                <h2>任务（quest）</h2>
-                <button class="mc-button small primary" data-action="orders-add-quest" @click="createQuest">
-                  添加任务
-                </button>
+                <h2>{{ tx("任务（quest）") }}</h2>
+                <button class="mc-button small primary" data-action="orders-add-quest" @click="createQuest"> {{ tx("添加任务") }} </button>
               </div>
-              <p v-if="selectedOrder.quests.length === 0" class="muted">
-                至少需要 1 个任务，否则订单无法打开。
-              </p>
+              <p v-if="selectedOrder.quests.length === 0" class="muted"> {{ tx("至少需要 1 个任务，否则订单无法打开。") }} </p>
               <article
                 v-for="quest in selectedOrder.quests"
                 :key="quest.id"
@@ -1092,12 +1074,12 @@ function customRewardType(reward: RewardEntry): boolean {
               >
                 <header class="quest-head">
                   <label class="field quest-id-field">
-                    <span class="field-label">任务 ID</span>
+                    <span class="field-label">{{ tx("任务 ID") }}</span>
                     <input
                       class="mc-input"
                       :value="quest.id"
                       spellcheck="false"
-                      :aria-label="`任务 ID ${quest.id}`"
+                      :aria-label="tx('任务 ID {id}', { id: quest.id })"
                       @change="onQuestIdChange(quest, $event)"
                       @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
                     />
@@ -1107,15 +1089,14 @@ function customRewardType(reward: RewardEntry): boolean {
                     <select
                       class="mc-select"
                       :value="quest.type"
-                      :aria-label="`任务 ${quest.id} 的类型`"
+                      :aria-label="tx('任务 {id} 的类型', { id: quest.id })"
                       data-field="quest-type"
                       @change="onQuestTypeChange(quest, $event)"
                     >
                       <option v-if="quest.type && !questTypeMeta(quest.type)" :value="quest.type">
-                        {{ quest.type }}（非法）
-                      </option>
+                        {{ quest.type }}{{ tx("（非法）") }} </option>
                       <option v-for="meta in QUEST_TYPES" :key="meta.value" :value="meta.value">
-                        {{ meta.label }}（{{ meta.value }}）
+                        {{ meta.label }} ({{ meta.value }})
                       </option>
                     </select>
                   </label>
@@ -1124,7 +1105,7 @@ function customRewardType(reward: RewardEntry): boolean {
                       class="icon-button"
                       type="button"
                       :disabled="isFirstQuest(quest)"
-                      aria-label="上移任务"
+                      :aria-label="tx('上移任务')"
                       @click="moveQuestItem(quest, -1)"
                     >
                       ↑
@@ -1133,7 +1114,7 @@ function customRewardType(reward: RewardEntry): boolean {
                       class="icon-button"
                       type="button"
                       :disabled="isLastQuest(quest)"
-                      aria-label="下移任务"
+                      :aria-label="tx('下移任务')"
                       @click="moveQuestItem(quest, 1)"
                     >
                       ↓
@@ -1141,7 +1122,7 @@ function customRewardType(reward: RewardEntry): boolean {
                     <button
                       class="icon-button danger"
                       type="button"
-                      aria-label="删除任务"
+                      :aria-label="tx('删除任务')"
                       @click="removeQuest(quest)"
                     >
                       ×
@@ -1151,28 +1132,28 @@ function customRewardType(reward: RewardEntry): boolean {
 
                 <div class="quest-body">
                   <label v-if="questTypeMeta(quest.type)?.target !== 'mob'" class="field">
-                    <span class="field-label">item（Bukkit Material 枚举名）</span>
+                    <span class="field-label">{{ tx("item（Bukkit Material 枚举名）") }}</span>
                     <input
                       class="mc-input"
                       list="orders-material-options"
                       :value="quest.item"
                       spellcheck="false"
-                      :aria-label="`任务 ${quest.id} 的 item`"
+                      :aria-label="tx('任务 {id} 的 item', { id: quest.id })"
                       data-field="quest-item"
                       @input="onQuestTargetInput(quest, 'item', $event)"
                     />
                   </label>
                   <label v-else class="field">
-                    <span class="field-label">mob（Bukkit EntityType 枚举名）</span>
+                    <span class="field-label">{{ tx("mob（Bukkit EntityType 枚举名）") }}</span>
                     <select
                       v-if="quest.type === 'feed'"
                       class="mc-select"
                       :value="quest.mob.toLowerCase()"
-                      :aria-label="`任务 ${quest.id} 的可喂食动物`"
+                      :aria-label="tx('任务 {id} 的可喂食动物', { id: quest.id })"
                       data-field="quest-mob"
                       @change="onQuestTargetInput(quest, 'mob', $event)"
                     >
-                      <option value="">请选择</option>
+                      <option value="">{{ tx("请选择") }}</option>
                       <option v-for="mob in FEEDABLE_OPTIONS" :key="mob" :value="mob.toLowerCase()">
                         {{ mob }}
                       </option>
@@ -1183,18 +1164,18 @@ function customRewardType(reward: RewardEntry): boolean {
                       list="orders-entity-options"
                       :value="quest.mob"
                       spellcheck="false"
-                      :aria-label="`任务 ${quest.id} 的 mob`"
+                      :aria-label="tx('任务 {id} 的 mob', { id: quest.id })"
                       data-field="quest-mob"
                       @input="onQuestTargetInput(quest, 'mob', $event)"
                     />
                   </label>
                   <label class="field amount-field">
-                    <span class="field-label">amount（正整数）</span>
+                    <span class="field-label">{{ tx("amount（正整数）") }}</span>
                     <input
                       class="mc-input"
                       inputmode="numeric"
                       :value="quest.amount"
-                      :aria-label="`任务 ${quest.id} 的 amount`"
+                      :aria-label="tx('任务 {id} 的 amount', { id: quest.id })"
                       data-field="quest-amount"
                       @input="onQuestAmountInput(quest, $event)"
                     />
@@ -1215,11 +1196,12 @@ function customRewardType(reward: RewardEntry): boolean {
                   >
                     <strong>{{ issue.code }}</strong>
                     {{ issue.message }}
+                    <span v-if="issue.fixHint" class="issue-fix">{{ issue.fixHint }}</span>
                   </button>
                 </div>
 
                 <details v-if="quest.extras.length" class="unknown-box">
-                  <summary>未识别字段（{{ quest.extras.length }}）· 原样保留</summary>
+                  <summary>{{ tx("未识别字段（") }}{{ quest.extras.length }}{{ tx("）· 原样保留") }}</summary>
                   <ul>
                     <li v-for="extra in quest.extras" :key="extra.key">
                       <code>{{ extra.key }}</code>
@@ -1232,17 +1214,17 @@ function customRewardType(reward: RewardEntry): boolean {
 
             <section class="form-section">
               <div class="section-head">
-                <h2>奖励（reward）</h2>
+                <h2>{{ tx("奖励（reward）") }}</h2>
                 <div class="section-actions">
                   <button
                     class="mc-button small"
                     type="button"
                     data-action="orders-toggle-raw"
                     :disabled="rawModeDisabled && !rawMode"
-                    :title="rawModeDisabled ? '存在非字符串奖励行，原文模式不可用' : '按行编辑 reward 原文'"
+                    :title="rawModeDisabled ? tx('存在非字符串奖励行，原文模式不可用') : tx('按行编辑 reward 原文')"
                     @click="toggleRawMode"
                   >
-                    {{ rawMode ? '应用原文' : '原文模式' }}
+                    {{ rawMode ? tx('应用原文') : tx('原文模式') }}
                   </button>
                   <button
                     v-if="!rawMode"
@@ -1250,31 +1232,25 @@ function customRewardType(reward: RewardEntry): boolean {
                     type="button"
                     data-action="orders-add-reward"
                     @click="addRewardLine"
-                  >
-                    添加奖励
-                  </button>
-                  <button v-if="rawMode" class="mc-button small" type="button" @click="cancelRawMode">
-                    取消
-                  </button>
+                  > {{ tx("添加奖励") }} </button>
+                  <button v-if="rawMode" class="mc-button small" type="button" @click="cancelRawMode"> {{ tx("取消") }} </button>
                 </div>
               </div>
 
               <div v-if="rawMode" class="raw-mode">
-                <p class="muted">每行一条奖励；空行会被忽略。修改后点“应用原文”。</p>
+                <p class="muted">{{ tx("每行一条奖励；空行会被忽略。修改后点“应用原文”。") }}</p>
                 <textarea
                   v-model="rawDraft"
                   class="mc-input raw-textarea"
                   rows="8"
-                  aria-label="reward 原文列表"
+                  :aria-label="tx('reward 原文列表')"
                   data-field="orders-raw-rewards"
                 ></textarea>
                 <p v-if="rawError" class="field-error">{{ rawError }}</p>
               </div>
 
               <template v-else>
-                <p v-if="selectedOrder.rewards.length === 0" class="muted">
-                  没有奖励；完成后玩家不会获得任何奖励。
-                </p>
+                <p v-if="selectedOrder.rewards.length === 0" class="muted"> {{ tx("没有奖励；完成后玩家不会获得任何奖励。") }} </p>
                 <article
                   v-for="reward in selectedOrder.rewards"
                   :key="reward.index"
@@ -1288,43 +1264,42 @@ function customRewardType(reward: RewardEntry): boolean {
                 >
                   <span class="reward-index">#{{ reward.index + 1 }}</span>
                   <label class="field reward-type-field">
-                    <span class="field-label">类型</span>
+                    <span class="field-label">{{ tx("类型") }}</span>
                     <select
                       class="mc-select"
                       :value="reward.type"
-                      :aria-label="`奖励 ${reward.index + 1} 的类型`"
+                      :aria-label="tx('奖励 {index} 的类型', { index: reward.index + 1 })"
                       data-field="reward-type"
                       @change="onRewardTypeChange(reward, $event)"
                     >
                       <option v-if="customRewardType(reward)" :value="reward.type">
-                        {{ reward.type }}（未知，原样保留）
-                      </option>
+                        {{ reward.type }}{{ tx("（未知，原样保留）") }} </option>
                       <option v-for="meta in REWARD_TYPES" :key="meta.value" :value="meta.value">
-                        {{ meta.label }}（{{ meta.value }}）
+                        {{ meta.label }} ({{ meta.value }})
                       </option>
                     </select>
                   </label>
 
                   <template v-if="reward.type === 'item'">
                     <label class="field reward-material-field">
-                      <span class="field-label">材料</span>
+                      <span class="field-label">{{ tx("材料") }}</span>
                       <input
                         class="mc-input"
                         list="orders-item-options"
                         :value="reward.args[0] ?? ''"
                         spellcheck="false"
-                        :aria-label="`奖励 ${reward.index + 1} 的材料`"
+                        :aria-label="tx('奖励 {index} 的材料', { index: reward.index + 1 })"
                         data-field="reward-arg-0"
                         @input="onRewardArgInput(reward, 0, $event)"
                       />
                     </label>
                     <label class="field reward-value-field">
-                      <span class="field-label">数量</span>
+                      <span class="field-label">{{ tx("数量") }}</span>
                       <input
                         class="mc-input"
                         inputmode="numeric"
                         :value="reward.args[1] ?? ''"
-                        :aria-label="`奖励 ${reward.index + 1} 的数量`"
+                        :aria-label="tx('奖励 {index} 的数量', { index: reward.index + 1 })"
                         data-field="reward-arg-1"
                         @input="onRewardArgInput(reward, 1, $event)"
                       />
@@ -1339,36 +1314,36 @@ function customRewardType(reward: RewardEntry): boolean {
                     "
                     class="field reward-value-field"
                   >
-                    <span class="field-label">{{ reward.type === 'experience' ? '经验值' : '金额' }}</span>
+                    <span class="field-label">{{ reward.type === 'experience' ? tx('经验值') : tx('金额') }}</span>
                     <input
                       class="mc-input"
                       inputmode="decimal"
                       :value="reward.args[0] ?? ''"
-                      :aria-label="`奖励 ${reward.index + 1} 的数值`"
+                      :aria-label="tx('奖励 {index} 的数值', { index: reward.index + 1 })"
                       data-field="reward-arg-0"
                       @input="onRewardArgInput(reward, 0, $event)"
                     />
                   </label>
 
                   <label v-else-if="reward.type === 'console_command'" class="field reward-command-field">
-                    <span class="field-label">命令（不能含 ;，%player% 会被替换）</span>
+                    <span class="field-label">{{ tx("命令（不能含 ;，%player% 会被替换）") }}</span>
                     <input
                       class="mc-input"
                       :value="reward.args[0] ?? ''"
                       spellcheck="false"
-                      :aria-label="`奖励 ${reward.index + 1} 的命令`"
+                      :aria-label="tx('奖励 {index} 的命令', { index: reward.index + 1 })"
                       data-field="reward-arg-0"
                       @input="onRewardArgInput(reward, 0, $event)"
                     />
                   </label>
 
                   <label v-else class="field reward-command-field">
-                    <span class="field-label">未知类型原文（保留，不会生效）</span>
+                    <span class="field-label">{{ tx("未知类型原文（保留，不会生效）") }}</span>
                     <input
                       class="mc-input"
                       :value="reward.raw"
                       spellcheck="false"
-                      :aria-label="`奖励 ${reward.index + 1} 的未知类型原文`"
+                      :aria-label="tx('奖励 {index} 的未知类型原文', { index: reward.index + 1 })"
                       data-field="reward-raw"
                       @change="onRawRewardChange(reward, $event)"
                     />
@@ -1379,7 +1354,7 @@ function customRewardType(reward: RewardEntry): boolean {
                       class="icon-button"
                       type="button"
                       :disabled="isFirstReward(reward)"
-                      aria-label="上移奖励"
+                      :aria-label="tx('上移奖励')"
                       @click="moveRewardItem(reward, -1)"
                     >
                       ↑
@@ -1388,7 +1363,7 @@ function customRewardType(reward: RewardEntry): boolean {
                       class="icon-button"
                       type="button"
                       :disabled="isLastReward(reward)"
-                      aria-label="下移奖励"
+                      :aria-label="tx('下移奖励')"
                       @click="moveRewardItem(reward, 1)"
                     >
                       ↓
@@ -1396,7 +1371,7 @@ function customRewardType(reward: RewardEntry): boolean {
                     <button
                       class="icon-button danger"
                       type="button"
-                      aria-label="删除奖励"
+                      :aria-label="tx('删除奖励')"
                       @click="removeReward(reward)"
                     >
                       ×
@@ -1419,6 +1394,7 @@ function customRewardType(reward: RewardEntry): boolean {
                     >
                       <strong>{{ issue.code }}</strong>
                       {{ issue.message }}
+                      <span v-if="issue.fixHint" class="issue-fix">{{ issue.fixHint }}</span>
                     </button>
                   </div>
                 </article>
@@ -1426,7 +1402,7 @@ function customRewardType(reward: RewardEntry): boolean {
             </section>
 
             <details v-if="selectedOrder.extras.length" class="unknown-box order-extras">
-              <summary>订单未识别字段（{{ selectedOrder.extras.length }}）· 原样保留</summary>
+              <summary>{{ tx("订单未识别字段（") }}{{ selectedOrder.extras.length }}{{ tx("）· 原样保留") }}</summary>
               <ul>
                 <li v-for="extra in selectedOrder.extras" :key="extra.key">
                   <code>{{ extra.key }}</code>
@@ -1436,7 +1412,7 @@ function customRewardType(reward: RewardEntry): boolean {
             </details>
 
             <div v-if="globalIssues.length" class="global-issues">
-              <h3>文件级问题</h3>
+              <h3>{{ tx("文件级问题") }}</h3>
               <button
                 v-for="(issue, index) in globalIssues"
                 :key="`${issue.code}-${index}`"
@@ -1446,7 +1422,8 @@ function customRewardType(reward: RewardEntry): boolean {
               >
                 <strong>{{ issue.code }}</strong>
                 {{ issue.message }}
-                <span v-if="issue.line">（第 {{ issue.line }} 行）</span>
+                <span v-if="issue.fixHint" class="issue-fix">{{ issue.fixHint }}</span>
+                <span v-if="issue.line">{{ tx("（第") }} {{ issue.line }} {{ tx("行）") }}</span>
               </button>
             </div>
           </div>
@@ -1473,23 +1450,23 @@ function customRewardType(reward: RewardEntry): boolean {
     />
 
     <div v-if="importDialogOpen" class="orders-modal-overlay" @click.self="closeImportDialog">
-      <section class="orders-modal" role="dialog" aria-modal="true" aria-label="导入 orders.yml">
-        <h2>导入 orders.yml</h2>
+      <section class="orders-modal" role="dialog" aria-modal="true" :aria-label="tx('导入 orders.yml')">
+        <h2>{{ tx("导入 orders.yml") }}</h2>
         <div v-if="importError" class="import-error">
-          <strong>文件无法解析</strong>
+          <strong>{{ tx("文件无法解析") }}</strong>
           <p>{{ importError }}</p>
-          <button class="mc-button" @click="closeImportDialog">关闭</button>
+          <button class="mc-button" @click="closeImportDialog">{{ tx("关闭") }}</button>
         </div>
         <template v-else>
-          <p>项目中已有 orders.yml，请选择导入方式：</p>
+          <p>{{ tx("项目中已有 orders.yml，请选择导入方式：") }}</p>
           <ul class="import-options">
-            <li><strong>替换</strong>：丢弃当前全部订单（未导出的修改也会丢失）。</li>
-            <li><strong>合并</strong>：保留现有订单；同名订单以导入文件为准。</li>
+            <li><strong>{{ tx("替换") }}</strong>{{ tx("：丢弃当前全部订单（未导出的修改也会丢失）。") }}</li>
+            <li><strong>{{ tx("合并") }}</strong>{{ tx("：保留现有订单；同名订单以导入文件为准。") }}</li>
           </ul>
           <div class="orders-modal-actions">
-            <button class="mc-button" data-action="orders-import-replace" @click="replaceImport">替换</button>
-            <button class="mc-button primary" data-action="orders-import-merge" @click="mergeImport">合并</button>
-            <button class="mc-button" @click="closeImportDialog">取消</button>
+            <button class="mc-button" data-action="orders-import-replace" @click="replaceImport">{{ tx("替换") }}</button>
+            <button class="mc-button primary" data-action="orders-import-merge" @click="mergeImport">{{ tx("合并") }}</button>
+            <button class="mc-button" @click="closeImportDialog">{{ tx("取消") }}</button>
           </div>
         </template>
       </section>

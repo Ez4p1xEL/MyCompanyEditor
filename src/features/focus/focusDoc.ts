@@ -1,3 +1,4 @@
+import { validationText } from '../../core/validation';
 import {
   Document,
   isAlias,
@@ -180,7 +181,7 @@ function preview(node: Node | null | undefined): string {
     const json = JSON.stringify(node.toJSON());
     return json && json.length > 160 ? `${json.slice(0, 160)}…` : (json ?? '');
   } catch {
-    return '[无法预览]';
+    return validationText("[无法预览]");
   }
 }
 

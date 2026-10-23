@@ -11,6 +11,23 @@ import {
   type ToStringOptions,
 } from 'yaml';
 
+type YamlTranslator = (source: string, params?: Record<string, string | number>) => string;
+
+function defaultYamlText(source: string, params?: Record<string, string | number>): string {
+  if (!params) return source;
+  return source.replace(/\{(\w+)\}/g, (match, name: string) => {
+    const value = params[name];
+    return value === undefined ? match : String(value);
+  });
+}
+
+let yamlText: YamlTranslator = defaultYamlText;
+
+/** 由 validation 模块注入校验文本翻译器；validate-fixtures 等纯 Node 路径保持中文默认。 */
+export function setYamlTranslator(translator: YamlTranslator | null): void {
+  yamlText = translator ?? defaultYamlText;
+}
+
 /**
  * 统一 YAML 引擎。
  *
@@ -109,15 +126,15 @@ function errorMessage(error: unknown): string {
 }
 
 function keyLabel(key: Node | null | undefined): string {
-  if (!key) return '[空键]';
+  if (!key) return yamlText("[空键]");
   if (isScalar(key)) {
     const value = key.value;
     return value === null || value === undefined ? 'null' : String(value);
   }
   if (isAlias(key)) return `*${key.source}`;
-  if (isMap(key)) return '[映射键]';
-  if (isSeq(key)) return '[列表键]';
-  return '[未知键]';
+  if (isMap(key)) return yamlText("[映射键]");
+  if (isSeq(key)) return yamlText("[列表键]");
+  return yamlText("[未知键]");
 }
 
 function collectDuplicates(
@@ -153,7 +170,7 @@ function collectDuplicates(
 function collectAnchorIssues(node: Node, text: string, out: YamlIssue[]): void {
   if (isAlias(node)) {
     out.push({
-      message: `不支持别名 “*${node.source}”：请展开为实际内容后再导入`,
+      message: yamlText("不支持别名 “*{p0}”：请展开为实际内容后再导入", { p0: node.source }),
       line: lineAt(text, node.range?.[0]),
       column: 1,
       code: 'ANCHOR_ALIAS',
@@ -162,7 +179,7 @@ function collectAnchorIssues(node: Node, text: string, out: YamlIssue[]): void {
     const anchor = (node as { anchor?: string }).anchor;
     if (anchor) {
       out.push({
-        message: `不支持锚点 “&${anchor}”：请展开为实际内容后再导入`,
+        message: yamlText("不支持锚点 “&{p0}”：请展开为实际内容后再导入", { p0: anchor }),
         line: lineAt(text, node.range?.[0]),
         column: 1,
         code: 'ANCHOR_ALIAS',
@@ -252,7 +269,7 @@ export function parseYamlText(input: string): ParsedYaml {
     };
   } catch (error) {
     const issue: YamlIssue = {
-      message: `YAML 解析失败：${errorMessage(error)}`,
+      message: yamlText("YAML 解析失败：{p0}", { p0: errorMessage(error) }),
       line: 1,
       column: 1,
     };

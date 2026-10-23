@@ -1,4 +1,16 @@
 import { ENTITY_TYPE_NAMES, MATERIAL_NAMES } from './data/minecraftEnums';
+import { getLocale } from '../../i18n';
+import enFocus from '../../i18n/locales/en/focus';
+
+export function focusText(key: string, params?: Record<string, string | number>): string {
+  const lookup = encodeURIComponent(key);
+  const template = getLocale() === 'zh-CN' ? key : (enFocus[lookup] ?? key);
+  if (!params) return template;
+  return template.replace(/\{(\w+)\}/g, (match: string, name: string) => {
+    const value = params[name];
+    return value === undefined ? match : String(value);
+  });
+}
 
 export const FIXED_FOCUS_IDS = ['none', 'mob'] as const;
 export type FixedFocusId = (typeof FIXED_FOCUS_IDS)[number];
@@ -7,10 +19,18 @@ export const REFERENCE_PREFIX = 'focus-reference/';
 export const REFERENCE_SUFFIX = '.reference.yml';
 
 export const VALUE_TYPES = [
-  { value: 'boolean', label: 'boolean（布尔）' },
-  { value: 'integer', label: 'integer（整数）' },
-  { value: 'double', label: 'double（小数）' },
-  { value: 'string', label: 'string（字符串）' },
+  { value: 'boolean', get label() {
+      return focusText("boolean（布尔）");
+    } },
+  { value: 'integer', get label() {
+      return focusText("integer（整数）");
+    } },
+  { value: 'double', get label() {
+      return focusText("double（小数）");
+    } },
+  { value: 'string', get label() {
+      return focusText("string（字符串）");
+    } },
 ] as const;
 
 export type FocusValueType = (typeof VALUE_TYPES)[number]['value'];
@@ -34,18 +54,18 @@ export function defaultValueFor(type: FocusValueType): string {
 
 /** 返回 value_type 与 default.value 不匹配时的阻断原因；合法返回 null。 */
 export function defaultValueError(type: string, value: string): string | null {
-  if (!isFocusValueType(type)) return `未知 value_type “${type}”`;
+  if (!isFocusValueType(type)) return focusText('未知 value_type “{type}”', { type });
   if (type === 'integer' && !/^[+-]?\d+$/.test(value.trim())) {
-    return `integer 的 default.value 必须是整数（当前 “${value}”），否则启动时 NumberFormatException`;
+    return focusText('integer 的 default.value 必须是整数（当前 “{value}”），否则启动时 NumberFormatException', { value });
   }
   if (
     type === 'double' &&
     !/^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/.test(value.trim())
   ) {
-    return `double 的 default.value 必须是数字（当前 “${value}”），否则启动时 NumberFormatException`;
+    return focusText('double 的 default.value 必须是数字（当前 “{value}”），否则启动时 NumberFormatException', { value });
   }
   if (type === 'string' && value.includes(';')) {
-    return 'string 类型的 default.value 不能包含 “;”（会破坏持久化格式）';
+    return focusText('string 类型的 default.value 不能包含 “;”（会破坏持久化格式）');
   }
   return null;
 }
@@ -70,27 +90,43 @@ export interface ConditionTypeMeta {
 export const CONDITION_TYPES: ConditionTypeMeta[] = [
   {
     value: 'company_money',
-    label: '公司资金',
+    get label() {
+      return focusText("公司资金");
+    },
     kind: 'number',
-    hint: '组件公司资金 ≥ N；解锁 expertise 时扣除（focus 级设置不扣款）。负数会恒真且可能加钱，必须阻断。',
+    get hint() {
+      return focusText("组件公司资金 ≥ N；解锁 expertise 时扣除（focus 级设置不扣款）。负数会恒真且可能加钱，必须阻断。");
+    },
   },
   {
     value: 'expertise',
-    label: '前置专精（单个）',
+    get label() {
+      return focusText("前置专精（单个）");
+    },
     kind: 'expertise',
-    hint: '同 focus 内某个节点已解锁；空串永远不满足。',
+    get hint() {
+      return focusText("同 focus 内某个节点已解锁；空串永远不满足。");
+    },
   },
   {
     value: 'expertises',
-    label: '前置专精组（列表）',
+    get label() {
+      return focusText("前置专精组（列表）");
+    },
     kind: 'expertises',
-    hint: '列表项之间 AND；单项内用逗号分隔表示 OR，例如 “a,b”。',
+    get hint() {
+      return focusText("列表项之间 AND；单项内用逗号分隔表示 OR，例如 “a,b”。");
+    },
   },
   {
     value: 'company_log',
-    label: '公司计数（日志）',
+    get label() {
+      return focusText("公司计数（日志）");
+    },
     kind: 'logs',
-    hint: '每行 “mob_kill_count,ENTITY,数值”；段数必须为 3，ENTITY 必须是大写枚举名。',
+    get hint() {
+      return focusText("每行 “mob_kill_count,ENTITY,数值”；段数必须为 3，ENTITY 必须是大写枚举名。");
+    },
   },
 ];
 
@@ -111,27 +147,43 @@ export interface ActionTypeMeta {
 export const ACTION_TYPES: ActionTypeMeta[] = [
   {
     value: 'console_command',
-    label: '控制台命令',
+    get label() {
+      return focusText("控制台命令");
+    },
     kind: 'stringList',
-    hint: '字符串列表；命令含 %player% 时会对公司所有员工分别执行一次。',
+    get hint() {
+      return focusText("字符串列表；命令含 %player% 时会对公司所有员工分别执行一次。");
+    },
   },
   {
     value: 'enable_expertise',
-    label: '重新启用专精',
+    get label() {
+      return focusText("重新启用专精");
+    },
     kind: 'stringList',
-    hint: '字符串列表：节点 id；只能救回被 disable 的节点。',
+    get hint() {
+      return focusText("字符串列表：节点 id；只能救回被 disable 的节点。");
+    },
   },
   {
     value: 'disable_expertise',
-    label: '禁用专精',
+    get label() {
+      return focusText("禁用专精");
+    },
     kind: 'stringList',
-    hint: '字符串列表：节点 id；被禁用节点从常规菜单隐藏、效果失效。',
+    get hint() {
+      return focusText("字符串列表：节点 id；被禁用节点从常规菜单隐藏、效果失效。");
+    },
   },
   {
     value: 'set_price_group',
-    label: '设置价格组',
+    get label() {
+      return focusText("设置价格组");
+    },
     kind: 'string',
-    hint: '非空标量字符串（例如 mob-company），影响内置商店收购倍率。',
+    get hint() {
+      return focusText("非空标量字符串（例如 mob-company），影响内置商店收购倍率。");
+    },
   },
 ];
 
@@ -150,15 +202,23 @@ export interface EffectTypeMeta {
 export const EFFECT_TYPES: EffectTypeMeta[] = [
   {
     value: 'mob_drops_add',
-    label: 'mob_drops_add（掉落增量）',
+    get label() {
+      return focusText("mob_drops_add（掉落增量）");
+    },
     kind: 'drops',
-    hint: '每个实体 key 下是字符串列表：“ITEM,[+|*]N,CHANCE”。',
+    get hint() {
+      return focusText("每个实体 key 下是字符串列表：“ITEM,[+|*]N,CHANCE”。");
+    },
   },
   {
     value: 'mob_damage_multiply',
-    label: 'mob_damage_multiply（伤害倍率）',
+    get label() {
+      return focusText("mob_damage_multiply（伤害倍率）");
+    },
     kind: 'damage',
-    hint: '每个实体 key 下是字符串列表：“MULTIPLIER,CHANCE”。',
+    get hint() {
+      return focusText("每个实体 key 下是字符串列表：“MULTIPLIER,CHANCE”。");
+    },
   },
 ];
 
@@ -212,12 +272,12 @@ export function parseDropRow(raw: string): DropRowParsed {
     chance: (parts[2] ?? '').trim(),
   };
   if (parts.length !== 3) {
-    return { ...base, valid: false, reason: `需要 3 段（当前 ${parts.length} 段）` };
+    return { ...base, valid: false, reason: focusText('需要 3 段（当前 {count} 段）', { count: parts.length }) };
   }
   const quantity = parts[1]?.trim() ?? '';
   const signMatch = /^([+*]?)(-?\d+)$/.exec(quantity);
   if (!signMatch) {
-    return { ...base, valid: false, reason: '数量必须形如 +N、*N 或 N' };
+    return { ...base, valid: false, reason: focusText('数量必须形如 +N、*N 或 N') };
   }
   return {
     ...base,
@@ -247,7 +307,7 @@ export function parseDamageRow(raw: string): DamageRowParsed {
     chance: (parts[1] ?? '').trim(),
   };
   if (parts.length !== 2) {
-    return { ...base, valid: false, reason: `需要 2 段（当前 ${parts.length} 段）` };
+    return { ...base, valid: false, reason: focusText('需要 2 段（当前 {count} 段）', { count: parts.length }) };
   }
   return { ...base, valid: true };
 }
@@ -276,7 +336,7 @@ export function parseCompanyLogRow(raw: string): CompanyLogRowParsed {
     segmentCount: parts.length,
   };
   if (parts.length !== 3 || !base.logId || !base.entity || !base.threshold) {
-    return { ...base, valid: false, reason: '格式必须为 logId,ENTITY,数值（恰好 3 段且非空）' };
+    return { ...base, valid: false, reason: focusText('格式必须为 logId,ENTITY,数值（恰好 3 段且非空）') };
   }
   return { ...base, valid: true };
 }

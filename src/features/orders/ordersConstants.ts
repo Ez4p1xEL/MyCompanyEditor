@@ -1,4 +1,17 @@
 import { ENTITY_TYPE_NAMES, ITEM_MATERIAL_NAMES, MATERIAL_NAMES } from './data/minecraftEnums';
+import { getLocale } from '../../i18n';
+import enOrders from '../../i18n/locales/en/orders';
+
+/** 轻量 gettext 风格：中文原文作 key，en 表提供译文；zh 直接返回原文。 */
+export function ordersText(key: string, params?: Record<string, string | number>): string {
+  const lookup = encodeURIComponent(key);
+  const template = getLocale() === 'zh-CN' ? key : (enOrders[lookup] ?? key);
+  if (!params) return template;
+  return template.replace(/\{(\w+)\}/g, (match: string, name: string) => {
+    const value = params[name];
+    return value === undefined ? match : String(value);
+  });
+}
 
 /** quest type 枚举（EmployeeOrders.java:184-210）。 */
 export interface QuestTypeMeta {
@@ -11,33 +24,53 @@ export interface QuestTypeMeta {
 export const QUEST_TYPES: QuestTypeMeta[] = [
   {
     value: 'break_block',
-    label: '破坏方块',
+    get label() {
+      return ordersText("破坏方块");
+    },
     target: 'item',
-    hint: '破坏指定材料方块时计数（忽略大小写，必须是 Bukkit Material 枚举名）',
+    get hint() {
+      return ordersText("破坏指定材料方块时计数（忽略大小写，必须是 Bukkit Material 枚举名）");
+    },
   },
   {
     value: 'place_block',
-    label: '放置方块',
+    get label() {
+      return ordersText("放置方块");
+    },
     target: 'item',
-    hint: '放置指定材料方块时计数（必须是 Bukkit Material 枚举名）',
+    get hint() {
+      return ordersText("放置指定材料方块时计数（必须是 Bukkit Material 枚举名）");
+    },
   },
   {
     value: 'fish',
-    label: '钓鱼',
+    get label() {
+      return ordersText("钓鱼");
+    },
     target: 'item',
-    hint: '钓到指定物品时计数（必须是 Bukkit Material 枚举名）',
+    get hint() {
+      return ordersText("钓到指定物品时计数（必须是 Bukkit Material 枚举名）");
+    },
   },
   {
     value: 'mob_kill',
-    label: '击杀生物',
+    get label() {
+      return ordersText("击杀生物");
+    },
     target: 'mob',
-    hint: '玩家击杀指定实体时计数（必须是 Bukkit EntityType 枚举名）',
+    get hint() {
+      return ordersText("玩家击杀指定实体时计数（必须是 Bukkit EntityType 枚举名）");
+    },
   },
   {
     value: 'feed',
-    label: '喂食动物',
+    get label() {
+      return ordersText("喂食动物");
+    },
     target: 'mob',
-    hint: '喂食指定动物时计数；仅支持 12 种可喂食动物',
+    get hint() {
+      return ordersText("喂食指定动物时计数；仅支持 12 种可喂食动物");
+    },
   },
 ];
 
@@ -53,14 +86,34 @@ export interface RewardTypeMeta {
 }
 
 export const REWARD_TYPES: RewardTypeMeta[] = [
-  { value: 'item', label: '物品', hint: '格式：item;材料;数量（数量必须为正整数）' },
-  { value: 'company_income', label: '公司收入', hint: '格式：company_income;金额（≥0，可小数）' },
-  { value: 'money', label: '玩家金钱', hint: '格式：money;金额（≥0，可小数）' },
-  { value: 'experience', label: '经验值', hint: '格式：experience;整数经验（≥0）' },
+  { value: 'item', get label() {
+      return ordersText("物品");
+    }, get hint() {
+      return ordersText("格式：item;材料;数量（数量必须为正整数）");
+    } },
+  { value: 'company_income', get label() {
+      return ordersText("公司收入");
+    }, get hint() {
+      return ordersText("格式：company_income;金额（≥0，可小数）");
+    } },
+  { value: 'money', get label() {
+      return ordersText("玩家金钱");
+    }, get hint() {
+      return ordersText("格式：money;金额（≥0，可小数）");
+    } },
+  { value: 'experience', get label() {
+      return ordersText("经验值");
+    }, get hint() {
+      return ordersText("格式：experience;整数经验（≥0）");
+    } },
   {
     value: 'console_command',
-    label: '控制台命令',
-    hint: '格式：console_command;命令（不能含 ;，建议不带前导 /，%player% 会被替换）',
+    get label() {
+      return ordersText("控制台命令");
+    },
+    get hint() {
+      return ordersText("格式：console_command;命令（不能含 ;，建议不带前导 /，%player% 会被替换）");
+    },
   },
 ];
 

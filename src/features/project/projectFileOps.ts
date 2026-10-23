@@ -10,6 +10,7 @@ import {
   normalizeProjectPath,
 } from '../../core/fileTypes';
 import type { ZipTextEntry } from './zip';
+import { t } from '../../i18n';
 
 export const PROJECT_JSON_FORMAT = 'mycompany-editor-project';
 export const PROJECT_JSON_VERSION = 1;
@@ -103,12 +104,12 @@ export function planYamlImports(inputs: ImportInput[]): ImportPlan {
   for (const input of inputs) {
     const path = normalizeProjectPath(input.path);
     if (!/\.(ya?ml)$/i.test(path)) {
-      skipped.push({ path: input.path, reason: '不是 .yml/.yaml 文件' });
+      skipped.push({ path: input.path, reason: t('shell.project.skippedExt') });
       continue;
     }
     const kind = detectFileKind(path, input.text);
     if (kind === 'unknown') {
-      skipped.push({ path: input.path, reason: '无法识别为 orders/focus/menu 文件' });
+      skipped.push({ path: input.path, reason: t('shell.project.skippedUnknown') });
       continue;
     }
     const base = path.split('/').pop() ?? path;
@@ -123,7 +124,7 @@ export function planYamlImports(inputs: ImportInput[]): ImportPlan {
     }
     const warning =
       kind === 'menu' && !(MENU_IDS as readonly string[]).includes(base.replace(/\.ya?ml$/i, ''))
-        ? `menu/${base} 不在固定 18 个菜单 id 中，插件不会加载`
+        ? t('shell.project.unknownMenu', { name: base })
         : undefined;
     planned.push({ path: target, text: input.text, kind, warning });
   }
@@ -161,32 +162,43 @@ export function parseProjectJson(
   try {
     raw = JSON.parse(text);
   } catch (error) {
-    return { ok: false, error: `JSON 解析失败：${error instanceof Error ? error.message : String(error)}` };
+    return {
+      ok: false,
+      error: t('shell.project.jsonParse', {
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    };
   }
-  if (!raw || typeof raw !== 'object') return { ok: false, error: '项目文件必须是 JSON 对象' };
+  if (!raw || typeof raw !== 'object') return { ok: false, error: t('shell.project.jsonObject') };
   const record = raw as Record<string, unknown>;
   if (record.format !== PROJECT_JSON_FORMAT) {
-    return { ok: false, error: '不是 MyCompany 编辑器项目文件（format 不匹配）' };
+    return { ok: false, error: t('shell.project.jsonFormat') };
   }
   if (record.version !== PROJECT_JSON_VERSION) {
-    return { ok: false, error: `不支持的项目版本 ${String(record.version)}（当前 ${PROJECT_JSON_VERSION}）` };
+    return {
+      ok: false,
+      error: t('shell.project.jsonVersion', {
+        version: String(record.version),
+        current: PROJECT_JSON_VERSION,
+      }),
+    };
   }
-  if (!Array.isArray(record.files)) return { ok: false, error: '项目文件缺少 files 数组' };
+  if (!Array.isArray(record.files)) return { ok: false, error: t('shell.project.jsonFiles') };
   const files: ProjectJsonFile[] = [];
   const seen = new Set<string>();
   for (const entry of record.files) {
-    if (!entry || typeof entry !== 'object') return { ok: false, error: 'files 中存在非对象条目' };
+    if (!entry || typeof entry !== 'object') return { ok: false, error: t('shell.project.jsonEntry') };
     const item = entry as Record<string, unknown>;
     if (typeof item.path !== 'string' || typeof item.text !== 'string') {
-      return { ok: false, error: 'files 条目的 path/text 必须是字符串' };
+      return { ok: false, error: t('shell.project.jsonPathText') };
     }
     const path = normalizeProjectPath(item.path);
-    if (!path) return { ok: false, error: 'files 存在空路径' };
-    if (seen.has(path)) return { ok: false, error: `files 存在重复路径 ${path}` };
+    if (!path) return { ok: false, error: t('shell.project.jsonEmptyPath') };
+    if (seen.has(path)) return { ok: false, error: t('shell.project.jsonDuplicate', { path }) };
     seen.add(path);
     const kind = typeof item.kind === 'string' ? item.kind : 'unknown';
     const allowed: FileKind[] = ['orders', 'focus', 'menu', 'focus-tree', 'menus-config', 'unknown'];
-    if (!allowed.includes(kind as FileKind)) return { ok: false, error: `未知文件类型 ${kind}` };
+    if (!allowed.includes(kind as FileKind)) return { ok: false, error: t('shell.project.jsonKind', { kind }) };
     files.push({ path, text: item.text, kind: kind as FileKind });
   }
   return {

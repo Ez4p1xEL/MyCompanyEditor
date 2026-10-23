@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { focusText as tx } from './focusConstants';
 import { computed, nextTick, ref, shallowRef, watch } from 'vue';
 import type { Document } from 'yaml';
 import { downloadTextFile } from '../../core/download';
@@ -178,7 +179,7 @@ function createFixed(id: string): void {
   store.upsertFile(path, serializeFocus(template), 'focus');
   selectedPath.value = path;
   selectedNodeId.value = null;
-  pushToast(`已创建固定文件 ${path}`, 'success');
+  pushToast(tx('已创建固定文件 {path}', { path }), 'success');
 }
 
 function triggerImport(): void {
@@ -195,10 +196,10 @@ async function onImportFile(event: Event): Promise<void> {
   const id = base.replace(/\.ya?ml$/i, '');
   const fixed = (FIXED_FOCUS_IDS as readonly string[]).includes(id);
   const path = fixed ? `focus/${id}.yml` : referencePathFor(id);
-  if (store.files[path] && !window.confirm(`项目中已有 ${path}，确定替换？`)) return;
+  if (store.files[path] && !window.confirm(tx('项目中已有 {path}，确定替换？', { path }))) return;
   const parsed = parseFocusFile(path, text);
   if (!parsed.parsed.ok || !parsed.doc) {
-    pushToast(`导入失败：${parsed.parsed.error?.message ?? 'YAML 无法解析'}`, 'error');
+    pushToast(tx('导入失败：{error}', { error: parsed.parsed.error?.message ?? tx('YAML 无法解析') }), 'error');
     return;
   }
   const legacy = parsed.model.legacyNodeIds;
@@ -210,9 +211,9 @@ async function onImportFile(event: Event): Promise<void> {
       (node) => node.valueTypeKey === 'value-type' && node.legacyValueType !== 'boolean',
     );
     migrationNote =
-      `；已迁移 ${migrated} 处旧键 value-type → value_type（保留原值）` +
+      tx('；已迁移 {count} 处旧键 value-type → value_type（保留原值）', { count: migrated }) +
       (nonBoolean.length
-        ? `，其中 ${nonBoolean.length} 个非 boolean：运行时语义会从 boolean 改变，请确认`
+        ? tx('，其中 {count} 个非 boolean：运行时语义会从 boolean 改变，请确认', { count: nonBoolean.length })
         : '');
   }
   const output = serializeFocus(parsed.doc);
@@ -221,30 +222,30 @@ async function onImportFile(event: Event): Promise<void> {
   selectedNodeId.value = null;
   pushToast(
     (fixed
-      ? `已替换固定文件 ${path}`
-      : `已导入参考文件 ${path}；它不会被插件加载，只能查看/迁移或另存为参考文件`) + migrationNote,
+      ? tx('已替换固定文件 {path}', { path })
+      : tx('已导入参考文件 {path}；它不会被插件加载，只能查看/迁移或另存为参考文件', { path })) + migrationNote,
     migrated > 0 ? 'warning' : fixed ? 'success' : 'warning',
   );
 }
 
 function removeReference(path: string): void {
   if (fixedFiles.value.some((entry) => entry.path === path)) return;
-  if (!window.confirm(`从项目中移除参考文件 ${path}？不会影响服务器文件。`)) return;
+  if (!window.confirm(tx('从项目中移除参考文件 {path}？不会影响服务器文件。', { path }))) return;
   store.removeFile(path);
   if (selectedPath.value === path) selectedPath.value = null;
   ensureSelection();
-  pushToast(`已移除参考文件 ${path}`, 'info');
+  pushToast(tx('已移除参考文件 {path}', { path }), 'info');
 }
 
 function migrateCurrent(): void {
   if (!doc.value) return;
   const count = migrateLegacyValueType(doc.value);
   if (count === 0) {
-    pushToast('没有发现 value-type 旧键', 'info');
+    pushToast(tx('没有发现 value-type 旧键'), 'info');
     return;
   }
   persist();
-  pushToast(`已归一化 ${count} 处 value-type → value_type（保留原值，导出只会写 value_type）`, 'warning');
+  pushToast(tx('已归一化 {count} 处 value-type → value_type（保留原值，导出只会写 value_type）', { count }), 'warning');
 }
 
 function setHeaderField(field: string, event: Event): void {
@@ -347,11 +348,11 @@ function renameNode(event: Event): void {
   const next = input.value.trim();
   if (next === node.id) return;
   const error = !next
-    ? 'ID 不能为空'
+    ? tx('ID 不能为空')
     : next.includes(':') || next.includes(';')
-      ? 'ID 不能包含 “:” 或 “;”'
+      ? tx('ID 不能包含 “:” 或 “;”')
       : model.value.expertises.some((entry) => entry.id === next)
-        ? `ID “${next}” 已存在`
+        ? tx('ID “{id}” 已存在', { id: next })
         : null;
   if (error) {
     pushToast(error, 'error');
@@ -380,7 +381,7 @@ function addNode(): void {
   persist();
   selectedNodeId.value = id;
   void nextTick(() => document.querySelector<HTMLElement>('[data-field="focus-node-id"]')?.focus());
-  pushToast(`已新增专精 ${id}`, 'success');
+  pushToast(tx('已新增专精 {id}', { id }), 'success');
 }
 
 function copyNode(): void {
@@ -388,25 +389,25 @@ function copyNode(): void {
   if (!node || !doc.value) return;
   const id = nextNodeId(`${node.id}_copy`);
   if (!duplicateExpertise(doc.value, node.id, id)) {
-    pushToast('复制失败：ID 冲突或节点不存在', 'error');
+    pushToast(tx('复制失败：ID 冲突或节点不存在'), 'error');
     return;
   }
   persist();
   selectedNodeId.value = id;
-  pushToast(`已复制为 ${id}`, 'success');
+  pushToast(tx('已复制为 {id}', { id }), 'success');
 }
 
 function removeNode(): void {
   const node = selectedNode.value;
   if (!node || !doc.value) return;
-  if (!window.confirm(`确定删除专精 “${node.id}”？玩家已解锁的该节点会变成孤儿数据。`)) return;
+  if (!window.confirm(tx('确定删除专精 “{id}”？玩家已解锁的该节点会变成孤儿数据。', { id: node.id }))) return;
   const index = model.value.expertises.findIndex((entry) => entry.id === node.id);
   if (!deleteExpertise(doc.value, node.id)) return;
   selectedNodeId.value = null;
   persist();
   const next = model.value.expertises[Math.min(index, model.value.expertises.length - 1)];
   selectedNodeId.value = next?.id ?? null;
-  pushToast(`已删除专精 ${node.id}`, 'info');
+  pushToast(tx('已删除专精 {id}', { id: node.id }), 'info');
 }
 
 function moveNode(direction: -1 | 1): void {
@@ -424,12 +425,12 @@ function copyNodeTo(targetPath: string): void {
   if (!node || !doc.value) return;
   const target = store.files[targetPath];
   if (!target) {
-    pushToast(`目标文件 ${targetPath} 不存在`, 'error');
+    pushToast(tx('目标文件 {path} 不存在', { path: targetPath }), 'error');
     return;
   }
   const parsed = parseFocusFile(targetPath, target.text);
   if (!parsed.doc) {
-    pushToast(`目标文件无法解析，已取消`, 'error');
+    pushToast(tx('目标文件无法解析，已取消'), 'error');
     return;
   }
   const targetIds = new Set(parsed.model.expertises.map((entry) => entry.id));
@@ -442,19 +443,19 @@ function copyNodeTo(targetPath: string): void {
   const source = expertiseNode(doc.value, node.id);
   const plain = source ? structuredClone(source.toJSON()) : defaultNodePlain(id);
   if (!addExpertise(parsed.doc, id, plain)) {
-    pushToast('复制失败：目标文件结构异常', 'error');
+    pushToast(tx('复制失败：目标文件结构异常'), 'error');
     return;
   }
   store.upsertFile(targetPath, serializeFocus(parsed.doc), 'focus');
   selectedPath.value = targetPath;
   selectedNodeId.value = id;
-  pushToast(`已把 ${node.id} 复制到 ${targetPath}（新 ID：${id}）`, 'success');
+  pushToast(tx('已把 {node} 复制到 {path}（新 ID：{id}）', { node: node.id, path: targetPath, id }), 'success');
 }
 
 function focusConditionSet(key: string, value: unknown): void {
   if (!doc.value) return;
   if (!setConditionEntry(doc.value, null, key, value)) {
-    pushToast('focus condition 不是映射，无法编辑', 'error');
+    pushToast(tx('focus condition 不是映射，无法编辑'), 'error');
     return;
   }
   persist();
@@ -470,7 +471,7 @@ function nodeConditionSet(key: string, value: unknown): void {
   const node = selectedNode.value;
   if (!node || !doc.value) return;
   if (!setConditionEntry(doc.value, node.id, key, value)) {
-    pushToast('condition 不是映射，无法编辑', 'error');
+    pushToast(tx('condition 不是映射，无法编辑'), 'error');
     return;
   }
   persist();
@@ -487,7 +488,7 @@ function nodeActionSet(key: string, value: unknown): void {
   const node = selectedNode.value;
   if (!node || !doc.value) return;
   if (!setActionEntry(doc.value, node.id, key, value)) {
-    pushToast('action 不是映射，无法编辑', 'error');
+    pushToast(tx('action 不是映射，无法编辑'), 'error');
     return;
   }
   persist();
@@ -504,7 +505,7 @@ function nodeEffectSetRows(effectKey: string, entity: string, rows: string[]): v
   const node = selectedNode.value;
   if (!node || !doc.value) return;
   if (!setEffectGroupRows(doc.value, node.id, effectKey, entity, rows)) {
-    pushToast('effect 结构异常，无法编辑该组', 'error');
+    pushToast(tx('effect 结构异常，无法编辑该组'), 'error');
     return;
   }
   persist();
@@ -515,7 +516,7 @@ function nodeEffectAddGroup(effectKey: string, entity: string): void {
   if (!node || !doc.value) return;
   const finalEntity = entity || 'ALL';
   if (!addEffectGroup(doc.value, node.id, effectKey, finalEntity)) {
-    pushToast('实体组已存在或 effect 结构异常', 'warning');
+    pushToast(tx('实体组已存在或 effect 结构异常'), 'warning');
     return;
   }
   persist();
@@ -532,7 +533,7 @@ function nodeEffectRenameGroup(effectKey: string, oldEntity: string, newEntity: 
   const node = selectedNode.value;
   if (!node || !doc.value) return;
   if (!renameEffectGroup(doc.value, node.id, effectKey, oldEntity, newEntity)) {
-    pushToast(`实体 “${newEntity}” 已存在或无效`, 'error');
+    pushToast(tx('实体 “{entity}” 已存在或无效', { entity: newEntity }), 'error');
     return;
   }
   persist();
@@ -553,7 +554,7 @@ function migrateExportDoc(): void {
   const count = migrateLegacyValueType(doc.value);
   if (count > 0) {
     persist();
-    pushToast(`导出前已归一化 ${count} 处 value-type → value_type`, 'warning');
+    pushToast(tx('导出前已归一化 {count} 处 value-type → value_type', { count }), 'warning');
   }
 }
 
@@ -561,7 +562,7 @@ function exportSelected(): void {
   const currentFile = file.value;
   if (!currentFile || !doc.value) return;
   if (!referenceMode.value && fixedBlockingIssues.value.length > 0) {
-    pushToast(`固定 focus 文件存在 ${fixedBlockingIssues.value.length} 条错误，已阻止导出`, 'error');
+    pushToast(tx('固定 focus 文件存在 {count} 条错误，已阻止导出', { count: fixedBlockingIssues.value.length }), 'error');
     showIssues.value = true;
     return;
   }
@@ -569,13 +570,13 @@ function exportSelected(): void {
   const updated = store.files[currentFile.path];
   if (!updated) return;
   if (!referenceMode.value && updated.issues.some(isBlockingIssue)) {
-    pushToast('归一化后仍存在错误/阻断项，已阻止导出', 'error');
+    pushToast(tx('归一化后仍存在错误/阻断项，已阻止导出'), 'error');
     showIssues.value = true;
     return;
   }
   const prepared = prepareExport(updated);
   if (!prepared.ok) {
-    pushToast(`导出被阻止：${issueLabel(prepared.issues[0])}`, 'error');
+    pushToast(tx('导出被阻止：{issue}', { issue: issueLabel(prepared.issues[0]) }), 'error');
     showIssues.value = true;
     return;
   }
@@ -584,19 +585,19 @@ function exportSelected(): void {
   store.markExported(currentFile.path);
   pushToast(
     referenceMode.value
-      ? `已导出参考文件 ${filename}；它不会进入 focus/，也不会被插件加载`
-      : `已导出 ${filename}；放回 plugins/MyCompany/focus/ 后建议重启`,
+      ? tx('已导出参考文件 {file}；它不会进入 focus/，也不会被插件加载', { file: filename })
+      : tx('已导出 {file}；放回 plugins/MyCompany/focus/ 后建议重启', { file: filename }),
     referenceMode.value ? 'warning' : 'success',
   );
 }
 
 function exportAllFixed(): void {
   if (fixedFiles.value.length === 0) {
-    pushToast('没有可导出的固定 focus 文件', 'error');
+    pushToast(tx('没有可导出的固定 focus 文件'), 'error');
     return;
   }
   if (fixedBlockingIssues.value.length > 0) {
-    pushToast(`固定 focus 文件存在 ${fixedBlockingIssues.value.length} 条错误，已阻止导出`, 'error');
+    pushToast(tx('固定 focus 文件存在 {count} 条错误，已阻止导出', { count: fixedBlockingIssues.value.length }), 'error');
     showIssues.value = true;
     return;
   }
@@ -614,13 +615,13 @@ function exportAllFixed(): void {
     const updated = store.files[entry.path];
     if (!updated) continue;
     if (updated.issues.some(isBlockingIssue)) {
-      pushToast(`导出 ${entry.path} 被阻止：归一化后仍存在错误`, 'error');
+      pushToast(tx('导出 {path} 被阻止：归一化后仍存在错误', { path: entry.path }), 'error');
       showIssues.value = true;
       return;
     }
     const prepared = prepareExport(updated);
     if (!prepared.ok) {
-      pushToast(`导出 ${entry.path} 被阻止：${issueLabel(prepared.issues[0])}`, 'error');
+      pushToast(tx('导出 {path} 被阻止：{issue}', { path: entry.path, issue: issueLabel(prepared.issues[0]) }), 'error');
       return;
     }
     preparedPayloads.push({
@@ -633,7 +634,7 @@ function exportAllFixed(): void {
     downloadTextFile(payload.filename, payload.text);
     store.markExported(payload.path);
   }
-  pushToast(`已导出 ${preparedPayloads.length} 个固定 focus 文件；修改后建议重启服务器`, 'success');
+  pushToast(tx('已导出 {count} 个固定 focus 文件；修改后建议重启服务器', { count: preparedPayloads.length }), 'success');
 }
 
 function parsedFocusId(path: string): string {
@@ -729,53 +730,47 @@ ensureSelection();
   <div class="focus-editor" data-testid="focus-editor">
     <header class="focus-header">
       <div>
-        <h1>专精编辑器</h1>
-        <p class="focus-subtitle">
-          插件只加载 <code>focus/none.yml</code> 与 <code>focus/mob.yml</code>（FixedFocusList 硬编码）。
-          修改后建议重启服务器；<code>/mycompany reload</code> 会重复 focus 列表。
-        </p>
+        <h1>{{ tx("专精编辑器") }}</h1>
+        <p class="focus-subtitle"> {{ tx("插件只加载") }} <code>focus/none.yml</code> {{ tx("与") }} <code>focus/mob.yml</code>{{ tx("（FixedFocusList 硬编码）。 修改后建议重启服务器；") }}<code>/mycompany reload</code> {{ tx("会重复 focus 列表。") }} </p>
       </div>
       <div class="focus-header-actions">
-        <button class="mc-button small" data-action="focus-import" @click="triggerImport">导入 focus 文件</button>
+        <button class="mc-button small" data-action="focus-import" @click="triggerImport">{{ tx("导入 focus 文件") }}</button>
         <button
           class="mc-button small"
           data-action="focus-export"
           :disabled="!exportable || (!referenceMode && fixedBlockingIssues.length > 0)"
           :title="
             fixedBlockingIssues.length > 0 && !referenceMode
-              ? `固定 focus 文件存在 ${fixedBlockingIssues.length} 条错误，导出被阻止`
+              ? tx('固定 focus 文件存在 {count} 条错误，导出被阻止', { count: fixedBlockingIssues.length })
               : referenceMode
-                ? '另存为参考文件（不会被插件加载）'
-                : '导出当前固定 focus 文件'
+                ? tx('另存为参考文件（不会被插件加载）')
+                : tx('导出当前固定 focus 文件')
           "
           @click="exportSelected"
         >
-          {{ referenceMode ? '另存为参考文件' : '导出当前文件' }}
+          {{ referenceMode ? tx('另存为参考文件') : tx('导出当前文件') }}
         </button>
         <button
           class="mc-button small primary"
           data-action="focus-export-all"
           :disabled="fixedFiles.length === 0 || fixedBlockingIssues.length > 0"
-          :title="fixedBlockingIssues.length > 0 ? `固定文件存在 ${fixedBlockingIssues.length} 条错误` : '导出 none.yml 与 mob.yml'"
+          :title="fixedBlockingIssues.length > 0 ? tx('固定文件存在 {count} 条错误', { count: fixedBlockingIssues.length }) : tx('导出 none.yml 与 mob.yml')"
           @click="exportAllFixed"
-        >
-          导出全部固定文件（{{ fixedFiles.length }}）
+        > {{ tx("导出全部固定文件（") }}{{ fixedFiles.length }})
         </button>
         <input ref="importInput" type="file" accept=".yml,.yaml" class="file-input" @change="onImportFile" />
       </div>
     </header>
 
     <div class="focus-fixed-banner">
-      <strong>固定加载列表：none / mob</strong>
-      <span>
-        不能新增、删除或重命名这两个文件（删除后插件会在 reload 时重新生成默认文件，改动会丢失）。
-        其他导入的 focus 文件仅作为“参考文件”保存/查看，不会被加载，也不能导出到 <code>focus/</code>。
+      <strong>{{ tx("固定加载列表：none / mob") }}</strong>
+      <span> {{ tx("不能新增、删除或重命名这两个文件（删除后插件会在 reload 时重新生成默认文件，改动会丢失）。 其他导入的 focus 文件仅作为“参考文件”保存/查看，不会被加载，也不能导出到") }} <code>focus/</code>.
       </span>
     </div>
 
     <div class="focus-layout">
       <aside class="focus-files">
-        <h2>focus 文件</h2>
+        <h2>{{ tx("focus 文件") }}</h2>
         <div v-for="id in FIXED_FOCUS_IDS" :key="id" class="file-slot">
           <button
             v-if="store.files[`focus/${id}.yml`]"
@@ -785,7 +780,7 @@ ensureSelection();
             @click="selectedPath = `focus/${id}.yml`"
           >
             <span>focus/{{ id }}.yml</span>
-            <span class="badge fixed">固定</span>
+            <span class="badge fixed">{{ tx("固定") }}</span>
           </button>
           <button
             v-else
@@ -794,13 +789,13 @@ ensureSelection();
             @click="createFixed(id)"
           >
             <span>focus/{{ id }}.yml</span>
-            <span class="badge missing">缺失 · 创建</span>
+            <span class="badge missing">{{ tx("缺失 · 创建") }}</span>
           </button>
         </div>
 
         <div v-if="nonFixedFiles.length" class="reference-heading">
-          <h2>参考文件</h2>
-          <p class="hint">不会被插件加载；可查看/迁移，导出为 *.reference.yml。</p>
+          <h2>{{ tx("参考文件") }}</h2>
+          <p class="hint">{{ tx("不会被插件加载；可查看/迁移，导出为 *.reference.yml。") }}</p>
         </div>
         <div
           v-for="entry in nonFixedFiles"
@@ -814,35 +809,27 @@ ensureSelection();
             @click="selectedPath = entry.path"
           >
             <span>{{ entry.path }}</span>
-            <span class="badge reference">参考</span>
+            <span class="badge reference">{{ tx("参考") }}</span>
           </button>
-          <button class="mc-button tiny" type="button" @click="removeReference(entry.path)">移除</button>
+          <button class="mc-button tiny" type="button" @click="removeReference(entry.path)">{{ tx("移除") }}</button>
         </div>
 
-        <p v-if="focusFiles.length === 0" class="muted">
-          还没有 focus 文件。可导入服务器文件，或先创建固定 none/mob 模板。
-        </p>
+        <p v-if="focusFiles.length === 0" class="muted"> {{ tx("还没有 focus 文件。可导入服务器文件，或先创建固定 none/mob 模板。") }} </p>
       </aside>
 
       <aside class="expertise-list">
-        <h2>专精节点（{{ model.expertises.length }}）</h2>
+        <h2>{{ tx("专精节点（") }}{{ model.expertises.length }})</h2>
         <input
           v-model="search"
           class="mc-input"
           data-field="focus-search"
-          placeholder="搜索 ID / label"
-          aria-label="搜索专精节点"
+          :placeholder="tx('搜索 ID / label')"
+          :aria-label="tx('搜索专精节点')"
         />
         <div class="expertise-actions">
-          <button class="mc-button tiny primary" data-action="focus-add-node" :disabled="!doc" @click="addNode">
-            + 新增
-          </button>
-          <button class="mc-button tiny" data-action="focus-copy-node" :disabled="!selectedNode" @click="copyNode">
-            复制
-          </button>
-          <button class="mc-button tiny danger" data-action="focus-delete-node" :disabled="!selectedNode" @click="removeNode">
-            删除
-          </button>
+          <button class="mc-button tiny primary" data-action="focus-add-node" :disabled="!doc" @click="addNode"> {{ tx("+ 新增") }} </button>
+          <button class="mc-button tiny" data-action="focus-copy-node" :disabled="!selectedNode" @click="copyNode"> {{ tx("复制") }} </button>
+          <button class="mc-button tiny danger" data-action="focus-delete-node" :disabled="!selectedNode" @click="removeNode"> {{ tx("删除") }} </button>
         </div>
         <div class="expertise-scroll">
           <button
@@ -855,22 +842,22 @@ ensureSelection();
           >
             <span class="expertise-id">{{ node.id }}</span>
             <span class="expertise-label">{{ node.label || 'No Label' }}</span>
-            <span v-if="node.valueTypeKey === 'value-type'" class="badge legacy">旧键</span>
-            <span v-if="nodeHasBlocking(node.id)" class="badge error">错误</span>
-            <span v-else-if="nodeIssues(node.id).length" class="badge warning">警告</span>
+            <span v-if="node.valueTypeKey === 'value-type'" class="badge legacy">{{ tx("旧键") }}</span>
+            <span v-if="nodeHasBlocking(node.id)" class="badge error">{{ tx("错误") }}</span>
+            <span v-else-if="nodeIssues(node.id).length" class="badge warning">{{ tx("警告") }}</span>
           </button>
-          <p v-if="filteredNodes.length === 0" class="muted">没有匹配的节点。</p>
+          <p v-if="filteredNodes.length === 0" class="muted">{{ tx("没有匹配的节点。") }}</p>
         </div>
 
         <details class="dependency-panel">
-          <summary>专精依赖检查（缺失 / 循环）</summary>
+          <summary>{{ tx("专精依赖检查（缺失 / 循环）") }}</summary>
           <ul>
             <li v-for="row in dependencyRows" :key="row.node.id">
               <code>{{ row.node.id }}</code>
-              <span v-if="row.deps.length === 0" class="muted"> · 无前置</span>
+              <span v-if="row.deps.length === 0" class="muted"> {{ tx("· 无前置") }}</span>
               <span v-else> ← {{ row.deps.join(', ') }}</span>
-              <span v-if="row.missing.length" class="badge error">缺失 {{ row.missing.join(', ') }}</span>
-              <span v-if="row.cycles || row.self" class="badge error">循环</span>
+              <span v-if="row.missing.length" class="badge error">{{ tx("缺失") }} {{ row.missing.join(', ') }}</span>
+              <span v-if="row.cycles || row.self" class="badge error">{{ tx("循环") }}</span>
             </li>
           </ul>
         </details>
@@ -879,15 +866,12 @@ ensureSelection();
       <main class="focus-detail">
         <div v-if="!selectedPath || !file" class="focus-empty">
           <div class="focus-empty-icon" aria-hidden="true">🧭</div>
-          <h2>选择或创建 focus 文件</h2>
-          <p>
-            固定可加载的只有 <code>focus/none.yml</code> 与 <code>focus/mob.yml</code>。
-            导入其他 focus 文件会作为参考文件，不会被插件加载。
-          </p>
+          <h2>{{ tx("选择或创建 focus 文件") }}</h2>
+          <p> {{ tx("固定可加载的只有") }} <code>focus/none.yml</code> {{ tx("与") }} <code>focus/mob.yml</code>{{ tx("。 导入其他 focus 文件会作为参考文件，不会被插件加载。") }} </p>
           <div class="focus-empty-actions">
-            <button class="mc-button primary" data-action="focus-empty-import" @click="triggerImport">导入 focus 文件</button>
-            <button class="mc-button" data-action="focus-empty-create-none" @click="createFixed('none')">创建 none.yml</button>
-            <button class="mc-button" data-action="focus-empty-create-mob" @click="createFixed('mob')">创建 mob.yml</button>
+            <button class="mc-button primary" data-action="focus-empty-import" @click="triggerImport">{{ tx("导入 focus 文件") }}</button>
+            <button class="mc-button" data-action="focus-empty-create-none" @click="createFixed('none')">{{ tx("创建 none.yml") }}</button>
+            <button class="mc-button" data-action="focus-empty-create-mob" @click="createFixed('mob')">{{ tx("创建 mob.yml") }}</button>
           </div>
         </div>
 
@@ -897,13 +881,11 @@ ensureSelection();
               <h2>{{ selectedPath }}</h2>
               <div class="badges">
                 <span class="badge" :class="referenceMode ? 'reference' : 'fixed'">
-                  {{ referenceMode ? '参考文件 · 不会被加载' : '固定加载文件' }}
+                  {{ referenceMode ? tx('参考文件 · 不会被加载') : tx('固定加载文件') }}
                 </span>
-                <span v-if="model.legacyNodeIds.length" class="badge legacy">
-                  含 value-type 旧键 {{ model.legacyNodeIds.length }} 处
-                </span>
-                <span v-if="blockingIssues.length" class="badge error">{{ blockingIssues.length }} 条错误</span>
-                <span v-else-if="issues.length" class="badge warning">{{ issues.length }} 条提示</span>
+                <span v-if="model.legacyNodeIds.length" class="badge legacy"> {{ tx("含 value-type 旧键") }} {{ model.legacyNodeIds.length }} {{ tx("处") }} </span>
+                <span v-if="blockingIssues.length" class="badge error">{{ blockingIssues.length }} {{ tx("条错误") }}</span>
+                <span v-else-if="issues.length" class="badge warning">{{ issues.length }} {{ tx("条提示") }}</span>
               </div>
             </div>
             <div class="detail-actions">
@@ -912,38 +894,29 @@ ensureSelection();
                 class="mc-button tiny primary"
                 data-action="focus-migrate-legacy"
                 @click="migrateCurrent"
-              >
-                归一化 value-type
-              </button>
+              > {{ tx("归一化 value-type") }} </button>
               <button
                 v-for="target in referenceMode && selectedNode ? fixedTargets : []"
                 :key="target"
                 class="mc-button tiny"
                 data-action="focus-copy-to-fixed"
                 @click="copyNodeTo(target)"
-              >
-                复制节点到 {{ target.split('/').pop() }}
+              > {{ tx("复制节点到") }} {{ target.split('/').pop() }}
               </button>
               <button class="mc-button tiny" type="button" @click="showIssues = !showIssues">
-                {{ showIssues ? '收起问题' : '显示问题' }}
+                {{ showIssues ? tx('收起问题') : tx('显示问题') }}
               </button>
             </div>
           </div>
 
-          <div v-if="referenceMode" class="reference-warning">
-            这是参考文件：可查看/编辑并另存为 <code>{{ model.focusId }}.reference.yml</code>，
-            但不会进入 <code>focus/</code>，也不会被插件加载。迁移节点请用“复制节点到固定文件”。
-          </div>
+          <div v-if="referenceMode" class="reference-warning"> {{ tx("这是参考文件：可查看/编辑并另存为") }} <code>{{ model.focusId }}.reference.yml</code>{{ tx("， 但不会进入") }} <code>focus/</code>{{ tx("，也不会被插件加载。迁移节点请用“复制节点到固定文件”。") }} </div>
 
           <section class="focus-card">
-            <h3>focus 头部</h3>
-            <p class="hint">
-              文件里的 <code>id</code> 字段不会被读取，focus ID 以文件名 {{ model.focusId }} 为准；
-              修改 label/description 后建议重启，首次启动语言文件可能覆盖文本。
-            </p>
+            <h3>{{ tx("focus 头部") }}</h3>
+            <p class="hint"> {{ tx("文件里的") }} <code>id</code> {{ tx("字段不会被读取，focus ID 以文件名") }} {{ model.focusId }} {{ tx("为准； 修改 label/description 后建议重启，首次启动语言文件可能覆盖文本。") }} </p>
             <div class="field-grid">
               <label class="field">
-                <span class="field-label">id（未使用，可保留）</span>
+                <span class="field-label">{{ tx("id（未使用，可保留）") }}</span>
                 <input class="mc-input" :value="model.idField" data-field="focus-id" @input="setHeaderField('id', $event)" />
               </label>
               <label class="field">
@@ -952,35 +925,33 @@ ensureSelection();
               </label>
             </div>
             <div class="field">
-              <span class="field-label">description（字符串列表）</span>
+              <span class="field-label">{{ tx("description（字符串列表）") }}</span>
               <div v-for="(line, index) in model.description" :key="index" class="list-row">
                 <input class="mc-input" :value="line" :data-field="`focus-desc-${index}`" @input="setHeaderDescription(index, $event)" />
-                <button class="mc-button tiny" type="button" @click="removeHeaderDescription(index)">删除</button>
+                <button class="mc-button tiny" type="button" @click="removeHeaderDescription(index)">{{ tx("删除") }}</button>
               </div>
-              <button class="mc-button tiny" type="button" @click="addHeaderDescription">+ 添加描述行</button>
+              <button class="mc-button tiny" type="button" @click="addHeaderDescription">{{ tx("+ 添加描述行") }}</button>
             </div>
             <div class="field">
-              <span class="field-label">focus 级 condition（设置 focus 时校验，不消耗）</span>
+              <span class="field-label">{{ tx("focus 级 condition（设置 focus 时校验，不消耗）") }}</span>
               <ConditionEditor
                 :model="model.condition"
                 :expertise-ids="model.expertises.map((node) => node.id)"
-                owner-label="focus 级条件"
+                :owner-label="tx('focus 级条件')"
                 @set="focusConditionSet"
                 @remove="focusConditionRemove"
               />
             </div>
           </section>
 
-          <section v-if="!selectedNode" class="focus-card muted">
-            从左侧选择一个专精节点，或点击“新增”。
-          </section>
+          <section v-if="!selectedNode" class="focus-card muted"> {{ tx("从左侧选择一个专精节点，或点击“新增”。") }} </section>
 
           <template v-else>
             <section class="focus-card">
-              <h3>专精节点 <code>{{ selectedNode.id }}</code></h3>
+              <h3>{{ tx("专精节点") }} <code>{{ selectedNode.id }}</code></h3>
               <div class="field-grid">
                 <label class="field">
-                  <span class="field-label">ID（重命名）</span>
+                  <span class="field-label">{{ tx("ID（重命名）") }}</span>
                   <input
                     class="mc-input"
                     :value="selectedNode.id"
@@ -998,13 +969,12 @@ ensureSelection();
                     <option v-for="type in ['boolean', 'integer', 'double', 'string']" :key="type" :value="type">
                       {{ type }}
                     </option>
-                    <option v-if="!isFocusValueType(selectedNode.valueType)" :value="selectedNode.valueType">
-                      非法：{{ selectedNode.valueType }}
+                    <option v-if="!isFocusValueType(selectedNode.valueType)" :value="selectedNode.valueType"> {{ tx("非法：") }}{{ selectedNode.valueType }}
                     </option>
                   </select>
                 </label>
                 <label class="field">
-                  <span class="field-label">default.value（按 value_type 类型化）</span>
+                  <span class="field-label">{{ tx("default.value（按 value_type 类型化）") }}</span>
                   <select
                     v-if="selectedNode.valueType === 'boolean'"
                     class="mc-select"
@@ -1014,16 +984,13 @@ ensureSelection();
                   >
                     <option value="true">true</option>
                     <option value="false">false</option>
-                    <option v-if="!isBooleanDefaultLiteral(selectedNode.defaultValue)" :value="selectedNode.defaultValue">
-                      非法：{{ selectedNode.defaultValue }}
+                    <option v-if="!isBooleanDefaultLiteral(selectedNode.defaultValue)" :value="selectedNode.defaultValue"> {{ tx("非法：") }}{{ selectedNode.defaultValue }}
                     </option>
                   </select>
                   <small
                     v-if="selectedNode.defaultValue !== booleanSelectValue(selectedNode.defaultValue)"
                     class="hint"
-                  >
-                    原值 {{ selectedNode.defaultValue }}（导出保留原大小写）
-                  </small>
+                  > {{ tx("原值") }} {{ selectedNode.defaultValue }}{{ tx("（导出保留原大小写）") }} </small>
                   <input
                     v-else
                     class="mc-input"
@@ -1041,51 +1008,47 @@ ensureSelection();
                   type="button"
                   data-action="focus-default-safe"
                   @click="setNodeDefaultForType"
-                >
-                  用安全默认值
-                </button>
+                > {{ tx("用安全默认值") }} </button>
               </p>
-              <p v-if="selectedNode.valueTypeKey === 'value-type'" class="inline-warning">
-                当前使用旧键 <code>value-type</code>；加载器会忽略并按 boolean 运行。点击上方“归一化 value-type”会保留原值。
-              </p>
+              <p v-if="selectedNode.valueTypeKey === 'value-type'" class="inline-warning"> {{ tx("当前使用旧键") }} <code>value-type</code>{{ tx("；加载器会忽略并按 boolean 运行。点击上方“归一化 value-type”会保留原值。") }} </p>
 
               <div class="field">
-                <span class="field-label">description（字符串列表）</span>
+                <span class="field-label">{{ tx("description（字符串列表）") }}</span>
                 <div v-for="(line, index) in selectedNode.description" :key="index" class="list-row">
                   <input class="mc-input" :value="line" :data-field="`focus-node-desc-${index}`" @input="updateNodeDescription(index, $event)" />
-                  <button class="mc-button tiny" type="button" @click="removeNodeDescription(index)">删除</button>
+                  <button class="mc-button tiny" type="button" @click="removeNodeDescription(index)">{{ tx("删除") }}</button>
                 </div>
-                <button class="mc-button tiny" type="button" @click="addNodeDescription">+ 添加描述行</button>
+                <button class="mc-button tiny" type="button" @click="addNodeDescription">{{ tx("+ 添加描述行") }}</button>
               </div>
 
               <div class="move-actions">
-                <button class="mc-button tiny" type="button" @click="moveNode(-1)">↑ 上移</button>
-                <button class="mc-button tiny" type="button" @click="moveNode(1)">↓ 下移</button>
+                <button class="mc-button tiny" type="button" @click="moveNode(-1)">{{ tx("↑ 上移") }}</button>
+                <button class="mc-button tiny" type="button" @click="moveNode(1)">{{ tx("↓ 下移") }}</button>
               </div>
 
               <details v-if="selectedNode.extras.length" class="extras">
-                <summary>未识别字段 {{ selectedNode.extras.length }} 个（原样保留）</summary>
+                <summary>{{ tx("未识别字段") }} {{ selectedNode.extras.length }} {{ tx("个（原样保留）") }}</summary>
                 <ul>
                   <li v-for="extra in selectedNode.extras" :key="extra.key">
-                    <code>{{ extra.key }}</code>：{{ extra.preview }}
+                    <code>{{ extra.key }}</code>: {{ extra.preview }}
                   </li>
                 </ul>
               </details>
             </section>
 
             <section class="focus-card">
-              <h3>condition（必填，可为空）</h3>
+              <h3>{{ tx("condition（必填，可为空）") }}</h3>
               <ConditionEditor
                 :model="selectedNode.condition"
                 :expertise-ids="model.expertises.map((node) => node.id)"
-                :owner-label="`节点 ${selectedNode.id} `"
+                :owner-label="tx('节点 {id} ', { id: selectedNode.id })"
                 @set="nodeConditionSet"
                 @remove="nodeConditionRemove"
               />
             </section>
 
             <section class="focus-card">
-              <h3>action（解锁时执行一次）</h3>
+              <h3>{{ tx("action（解锁时执行一次）") }}</h3>
               <ActionEditor
                 :model="selectedNode.action"
                 :expertise-ids="model.expertises.map((node) => node.id)"
@@ -1095,7 +1058,7 @@ ensureSelection();
             </section>
 
             <section class="focus-card">
-              <h3>effect（仅启用节点生效）</h3>
+              <h3>{{ tx("effect（仅启用节点生效）") }}</h3>
               <EffectEditor
                 :model="selectedNode.effect"
                 @set-rows="nodeEffectSetRows"
@@ -1106,47 +1069,46 @@ ensureSelection();
             </section>
 
             <section class="focus-card">
-              <h3>校验问题</h3>
-              <p v-if="nodeIssues(selectedNode.id).length === 0" class="muted">该节点没有发现问题。</p>
+              <h3>{{ tx("校验问题") }}</h3>
+              <p v-if="nodeIssues(selectedNode.id).length === 0" class="muted">{{ tx("该节点没有发现问题。") }}</p>
               <ul v-else class="issue-list">
                 <li v-for="(issue, index) in nodeIssues(selectedNode.id)" :key="index" :class="issue.severity">
                   <code>{{ issue.code }}</code> {{ issue.message }}
+                  <p v-if="issue.fixHint" class="issue-fix">{{ issue.fixHint }}</p>
                 </li>
               </ul>
             </section>
           </template>
 
           <section v-if="showIssues" class="focus-card">
-            <h3>全部问题（{{ issues.length }}）</h3>
-            <p v-if="issues.length === 0" class="muted">没有发现问题。</p>
+            <h3>{{ tx("全部问题（") }}{{ issues.length }}）</h3>
+            <p v-if="issues.length === 0" class="muted">{{ tx("没有发现问题。") }}</p>
             <ul v-else class="issue-list">
               <li v-for="(issue, index) in issues" :key="index" :class="issue.severity">
                 <code>{{ issue.code }}</code> {{ issue.message }}
-                <button v-if="issue.nodeId" class="mc-button tiny" type="button" @click="locateNode(issue.nodeId)">
-                  定位
-                </button>
+                <p v-if="issue.fixHint" class="issue-fix">{{ issue.fixHint }}</p>
+                <button v-if="issue.nodeId" class="mc-button tiny" type="button" @click="locateNode(issue.nodeId)"> {{ tx("定位") }} </button>
               </li>
             </ul>
           </section>
 
           <section v-if="model.extras.length" class="focus-card">
-            <h3>未识别顶层字段</h3>
+            <h3>{{ tx("未识别顶层字段") }}</h3>
             <ul>
               <li v-for="extra in model.extras" :key="extra.key">
-                <code>{{ extra.key }}</code>：{{ extra.preview }}
+                <code>{{ extra.key }}</code>: {{ extra.preview }}
               </li>
             </ul>
           </section>
 
           <section v-if="focusIssuesByNode().length" class="focus-card">
-            <h3>按节点汇总</h3>
+            <h3>{{ tx("按节点汇总") }}</h3>
             <ul class="issue-list">
               <li v-for="entry in focusIssuesByNode()" :key="entry.node.id">
                 <button class="mc-button tiny" type="button" @click="selectedNodeId = entry.node.id">
                   {{ entry.node.id }}
                 </button>
-                {{ entry.issues.length }} 条问题
-              </li>
+                {{ entry.issues.length }} {{ tx("条问题") }} </li>
             </ul>
           </section>
         </template>

@@ -1,3 +1,4 @@
+import { validationText } from '../../core/validation';
 import {
   Document,
   isAlias,
@@ -128,7 +129,7 @@ function preview(node: Node | null | undefined): string {
     const json = JSON.stringify(node.toJSON());
     return json && json.length > 160 ? `${json.slice(0, 160)}…` : (json ?? '');
   } catch {
-    return '[无法预览]';
+    return validationText("[无法预览]");
   }
 }
 
@@ -413,7 +414,7 @@ export function createEmptyOrdersDocument(): Document {
   return doc;
 }
 
-export function defaultOrderPlain(label = '新订单'): Record<string, unknown> {
+export function defaultOrderPlain(label = validationText("新订单")): Record<string, unknown> {
   return {
     label,
     description: [],

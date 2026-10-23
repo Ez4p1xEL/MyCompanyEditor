@@ -1,3 +1,4 @@
+import { validationText } from './validation';
 import type { FileKind } from './types';
 import { parseYamlText } from './yaml';
 
@@ -35,12 +36,12 @@ export const FIXED_MENU_PATHS = MENU_IDS.map((id) => `menu/${id}.yml`);
 const KIND_ORDER: FileKind[] = ['orders', 'focus', 'menu', 'focus-tree', 'menus-config', 'unknown'];
 
 const KIND_LABELS: Record<FileKind, string> = {
-  orders: '订单',
-  focus: '专精',
-  'focus-tree': '专精树（遗留）',
-  menu: '菜单',
-  'menus-config': '菜单配置（遗留）',
-  unknown: '未知文件',
+  orders: validationText("订单"),
+  focus: validationText("专精"),
+  'focus-tree': validationText("专精树（遗留）"),
+  menu: validationText("菜单"),
+  'menus-config': validationText("菜单配置（遗留）"),
+  unknown: validationText("未知文件"),
 };
 
 const KIND_ICONS: Record<FileKind, string> = {

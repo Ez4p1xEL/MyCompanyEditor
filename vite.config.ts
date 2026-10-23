@@ -35,6 +35,7 @@ export default async function viteConfig() {
     test: {
       environment: 'jsdom',
       include: ['tests/**/*.test.ts'],
+      setupFiles: ['./tests/setup.ts'],
       restoreMocks: true,
       // 受限沙箱禁止子进程使用管道 stdio，forks 池无法启动；使用线程池。
       pool: 'threads',

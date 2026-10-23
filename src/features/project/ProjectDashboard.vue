@@ -4,6 +4,7 @@ import { useProjectStore } from '../../store/project';
 import { pushToast } from '../../core/toast';
 import type { ProjectFile } from '../../core/types';
 import { downloadTextFile } from '../../core/download';
+import { useI18n } from '../../i18n';
 import { parseYamlText } from '../../core/yaml';
 import { MENU_IDS } from '../../core/fileTypes';
 import {
@@ -21,6 +22,7 @@ import { downloadZip, readZip } from './zip';
 import {
   ACTIVATION_ROWS,
   DEPLOYMENT_STEPS,
+  HELP_LABELS,
   FOCUS_LIMITS,
   MENU_LIMITS,
   QUEST_TYPES,
@@ -28,6 +30,7 @@ import {
 } from './help';
 
 const store = useProjectStore();
+const { t } = useI18n();
 const selectedPath = ref<string | null>(store.activePath);
 const selectedSeverity = ref<'all' | 'error' | 'warning' | 'info'>('all');
 const selectedFileFilter = ref<string>('all');
@@ -139,7 +142,7 @@ function openInEditor(path: string): void {
   const feature = featureFor(file);
   store.setActive(path);
   if (!feature) {
-    pushToast('该文件为只读/遗留配置，没有对应编辑器', 'info');
+    pushToast(t('shell.dashboard.readOnlyNoEditor'), 'info');
     return;
   }
   store.setActiveFeature(feature);
@@ -155,11 +158,15 @@ function locateIssue(issue: { file: string }): void {
 
 async function loadSample(): Promise<void> {
   const samples = sampleFiles();
-  if (store.fileList.length > 0 && !window.confirm('当前项目已有文件，载入示例会替换同名文件，继续？')) return;
+  if (store.fileList.length > 0 && !window.confirm(t('shell.dashboard.sampleConfirm'))) return;
   const result = store.importFiles(samples);
   selectedPath.value = 'orders.yml';
   pushToast(
-    `已载入内置示例：新增 ${result.imported.length} 个，替换 ${result.replaced.length} 个（共 ${samples.length} 个文件）`,
+    t('shell.dashboard.sampleLoaded', {
+      imported: result.imported.length,
+      replaced: result.replaced.length,
+      total: samples.length,
+    }),
     'success',
   );
 }
@@ -182,7 +189,7 @@ async function handleFiles(list: File[]): Promise<void> {
       } else if (lower.endsWith('.yml') || lower.endsWith('.yaml')) {
         yamlInputs.push({ path: file.name, text: await file.text() });
       } else {
-        pushToast(`已跳过不支持的文件：${file.name}`, 'warning');
+        pushToast(t('shell.dashboard.skippedFile', { file: file.name }), 'warning');
       }
     }
     if (yamlInputs.length > 0) importYamlFiles(yamlInputs);
@@ -210,14 +217,19 @@ async function importZipFile(file: File): Promise<void> {
     const entries = await readZip(bytes);
     const yamlEntries = entries.filter((entry) => /\.(ya?ml)$/i.test(entry.name));
     if (yamlEntries.length === 0) {
-      pushToast('ZIP 中没有 .yml/.yaml 文件', 'warning');
+      pushToast(t('shell.dashboard.zipNoYaml'), 'warning');
       return;
     }
     importYamlFiles(yamlEntries.map((entry) => ({ path: entry.name, text: entry.text })));
     const ignored = entries.length - yamlEntries.length;
-    if (ignored > 0) pushToast(`ZIP 中另有 ${ignored} 个非 YAML 条目已忽略`, 'info');
+    if (ignored > 0) pushToast(t('shell.dashboard.zipIgnored', { count: ignored }), 'info');
   } catch (error) {
-    pushToast(`ZIP 导入失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    pushToast(
+      t('shell.dashboard.zipFailed', {
+        error: error instanceof Error ? error.message : String(error),
+      }),
+      'error',
+    );
   }
 }
 
@@ -226,14 +238,16 @@ function importYamlFiles(inputs: Array<{ path: string; text: string }>): void {
   if (plan.planned.length === 0) {
     pushToast(
       plan.skipped.length
-        ? `未导入任何文件：${plan.skipped.map((entry) => `${entry.path}（${entry.reason}）`).join('；')}`
-        : '没有可导入的 YAML 文件',
+        ? t('shell.dashboard.noImported', {
+            skipped: plan.skipped.map((entry) => `${entry.path} (${entry.reason})`).join('; '),
+          })
+        : t('shell.dashboard.noYaml'),
       'warning',
     );
     return;
   }
   const conflicts = plan.planned.filter((entry) => store.files[entry.path]);
-  if (conflicts.length > 0 && !window.confirm(`将替换 ${conflicts.length} 个已存在文件，继续？`)) return;
+  if (conflicts.length > 0 && !window.confirm(t('shell.dashboard.replaceConfirm', { count: conflicts.length }))) return;
   for (const entry of plan.planned) {
     store.upsertFile(entry.path, entry.text, entry.kind);
     if (entry.warning) pushToast(entry.warning, 'warning');
@@ -241,9 +255,9 @@ function importYamlFiles(inputs: Array<{ path: string; text: string }>): void {
   selectedPath.value = plan.planned[0]?.path ?? null;
   const warnings = plan.planned.map((entry) => entry.warning).filter(Boolean);
   pushToast(
-    `已导入 ${plan.planned.length} 个文件` +
-      (plan.skipped.length ? `，跳过 ${plan.skipped.length} 个` : '') +
-      (warnings.length ? `（${warnings.length} 个未知菜单将持续警告）` : ''),
+    t('shell.dashboard.imported', { count: plan.planned.length }) +
+      (plan.skipped.length ? t('shell.dashboard.importSkipped', { count: plan.skipped.length }) : '') +
+      (warnings.length ? t('shell.dashboard.importWarnings', { count: warnings.length }) : ''),
     plan.skipped.length || warnings.length ? 'warning' : 'success',
   );
 }
@@ -255,12 +269,15 @@ async function importProjectJsonFile(file: File): Promise<void> {
 async function importProjectJsonText(text: string): Promise<void> {
   const parsed = parseProjectJson(text);
   if (!parsed.ok) {
-    pushToast(`项目 JSON 导入失败：${parsed.error}`, 'error');
+    pushToast(t('shell.dashboard.jsonImportFailed', { error: parsed.error }), 'error');
     return;
   }
-  if (store.fileList.length > 0 && !window.confirm('导入项目 JSON 会替换当前项目，继续？')) return;
+  if (store.fileList.length > 0 && !window.confirm(t('shell.dashboard.jsonReplaceConfirm'))) return;
   applyProjectJson(parsed.data);
-  pushToast(`已恢复项目：${parsed.data.files.length} 个文件（版本 ${parsed.data.version}）`, 'success');
+  pushToast(
+    t('shell.dashboard.jsonRestored', { count: parsed.data.files.length, version: parsed.data.version }),
+    'success',
+  );
 }
 
 function applyProjectJson(data: ProjectJsonData): void {
@@ -275,36 +292,44 @@ function applyProjectJson(data: ProjectJsonData): void {
 function downloadProjectJson(): void {
   const data = buildProjectJson(files.value, store.activeFeatureId);
   downloadTextFile('mycompany-project.json', `${JSON.stringify(data, null, 2)}\n`);
-  pushToast(`已下载项目 JSON（${data.files.length} 个文件，版本 ${data.version}）`, 'success');
+  pushToast(t('shell.dashboard.jsonDownloaded', { count: data.files.length, version: data.version }), 'success');
 }
 
 function saveToBrowser(): void {
   const ok = store.saveToLocalStorage();
-  pushToast(ok ? '已保存到浏览器 localStorage，刷新后自动恢复' : '保存失败：localStorage 不可用', ok ? 'success' : 'error');
+  pushToast(ok ? t('shell.dashboard.savedLocal') : t('shell.dashboard.savedFailed'), ok ? 'success' : 'error');
 }
 
 function exportProjectZip(): void {
   if (exportBlockers.value.length > 0) {
     const first = exportBlockers.value[0]!;
     pushToast(
-      `导出被阻止：${exportBlockers.value.length} 条错误/阻断项（${first.file}${first.path ? ` · ${first.path}` : ''}）`,
+      t('shell.dashboard.exportBlockedToast', {
+        count: exportBlockers.value.length,
+        location: `${first.file}${first.path ? ` · ${first.path}` : ''}`,
+      }),
       'error',
     );
     return;
   }
   const prepared = prepareProjectZip(files.value);
   if (!prepared.ok) {
-    pushToast(`导出被阻止：${prepared.issues[0]?.message ?? '全局校验失败'}`, 'error');
+    pushToast(
+      t('shell.dashboard.exportBlockedGeneric', {
+        message: prepared.issues[0]?.message ?? 'global validation failed',
+      }),
+      'error',
+    );
     return;
   }
   if (prepared.entries.length === 0) {
-    pushToast('没有可导出的 orders/focus/menu 文件', 'warning');
+    pushToast(t('shell.dashboard.noExport'), 'warning');
     return;
   }
   downloadZip('mycompany-project.zip', prepared.entries);
   for (const entry of prepared.entries) store.markExported(entry.name);
   pushToast(
-    `已导出 ${prepared.entries.length} 个文件到 mycompany-project.zip；menus.yml/focus 参考文件未包含`,
+    t('shell.dashboard.exportedZip', { count: prepared.entries.length }),
     'success',
   );
 }
@@ -325,20 +350,19 @@ function onDropZone(event: DragEvent): void {
   >
     <header class="project-header">
       <div>
-        <h1>项目工作台</h1>
+        <h1>{{ t('shell.dashboard.title') }}</h1>
         <p class="project-subtitle">
-          统一管理 <code>orders.yml</code>、<code>focus/*.yml</code> 与 18 个 <code>menu/*.yml</code>。
-          全部 YAML 在浏览器本地解析；红色错误会阻止全量导出。
+          {{ t('shell.dashboard.subtitle') }}
         </p>
       </div>
       <div class="project-actions">
-        <button class="mc-button" data-action="project-import" @click="triggerImport">导入文件 / ZIP / 项目 JSON</button>
-        <button class="mc-button primary" data-action="load-sample" @click="loadSample">载入示例</button>
+        <button class="mc-button" data-action="project-import" @click="triggerImport">{{ t('shell.dashboard.import') }}</button>
+        <button class="mc-button primary" data-action="load-sample" @click="loadSample">{{ t('shell.dashboard.loadSample') }}</button>
         <button class="mc-button" data-action="project-export-zip" :disabled="!canExport" @click="exportProjectZip">
-          导出全量 ZIP（{{ exportableCount }}）
+          {{ t('shell.dashboard.exportAll', { count: exportableCount }) }}
         </button>
-        <button class="mc-button" data-action="project-save-json" @click="downloadProjectJson">下载项目 JSON</button>
-        <button class="mc-button" data-action="project-save-local" @click="saveToBrowser">保存到浏览器</button>
+        <button class="mc-button" data-action="project-save-json" @click="downloadProjectJson">{{ t('shell.dashboard.saveJson') }}</button>
+        <button class="mc-button" data-action="project-save-local" @click="saveToBrowser">{{ t('shell.dashboard.saveLocal') }}</button>
         <input
           ref="fileInput"
           type="file"
@@ -352,45 +376,45 @@ function onDropZone(event: DragEvent): void {
     </header>
 
     <div class="project-stats">
-      <div class="project-stat"><strong>{{ totalStats.orders }}</strong><span>订单</span></div>
-      <div class="project-stat"><strong>{{ totalStats.focus }}</strong><span>可加载专精</span></div>
-      <div class="project-stat"><strong>{{ totalStats.focusRefs }}</strong><span>参考专精</span></div>
-      <div class="project-stat"><strong>{{ totalStats.menus }}/18</strong><span>菜单</span></div>
-      <div class="project-stat error"><strong>{{ counts.error }}</strong><span>错误</span></div>
-      <div class="project-stat warning"><strong>{{ counts.warning }}</strong><span>警告</span></div>
-      <div class="project-stat"><strong>{{ counts.info }}</strong><span>提示</span></div>
+      <div class="project-stat"><strong>{{ totalStats.orders }}</strong><span>{{ t('shell.dashboard.statsOrders') }}</span></div>
+      <div class="project-stat"><strong>{{ totalStats.focus }}</strong><span>{{ t('shell.dashboard.statsFocus') }}</span></div>
+      <div class="project-stat"><strong>{{ totalStats.focusRefs }}</strong><span>{{ t('shell.dashboard.statsFocusRefs') }}</span></div>
+      <div class="project-stat"><strong>{{ totalStats.menus }}/18</strong><span>{{ t('shell.dashboard.statsMenus') }}</span></div>
+      <div class="project-stat error"><strong>{{ counts.error }}</strong><span>{{ t('shell.dashboard.statsErrors') }}</span></div>
+      <div class="project-stat warning"><strong>{{ counts.warning }}</strong><span>{{ t('shell.dashboard.statsWarnings') }}</span></div>
+      <div class="project-stat"><strong>{{ counts.info }}</strong><span>{{ t('shell.dashboard.statsInfos') }}</span></div>
     </div>
 
     <div v-if="exportBlockers.length" class="project-blocked" data-testid="export-blocked">
-      <strong>导出被阻止：{{ exportBlockers.length }} 条错误/阻断项</strong>
+      <strong>{{ t('shell.dashboard.blockedTitle', { count: exportBlockers.length }) }}</strong>
       <ul>
         <li v-for="(issue, index) in exportBlockers.slice(0, 8)" :key="index">
           <code>{{ issue.file }}</code>
           <span v-if="issue.path"> · {{ issue.path }}</span>
           · {{ issue.message }}
+          <div v-if="issue.fixHint" class="issue-fix">{{ issue.fixHint }}</div>
         </li>
       </ul>
-      <span v-if="exportBlockers.length > 8">还有 {{ exportBlockers.length - 8 }} 条，见下方全局校验。</span>
+      <span v-if="exportBlockers.length > 8">{{ t('shell.dashboard.blockedMore', { count: exportBlockers.length - 8 }) }}</span>
     </div>
 
     <div v-if="files.length === 0" class="project-empty">
       <div class="project-empty-icon" aria-hidden="true">🏗️</div>
-      <h2>开始你的 MyCompany 项目</h2>
+      <h2>{{ t('shell.dashboard.emptyTitle') }}</h2>
       <p>
-        从服务器导入 <code>orders.yml</code>、<code>focus/*.yml</code>、<code>menu/*.yml</code>，
-        或载入内置示例项目（23 个文件，不依赖 docs/ 路径）。
+        {{ t('shell.dashboard.emptyText') }}
       </p>
       <div class="project-empty-actions">
-        <button class="mc-button primary" data-action="load-sample" @click="loadSample">载入示例</button>
-        <button class="mc-button" data-action="project-import" @click="triggerImport">导入文件</button>
-        <button class="mc-button" data-action="project-import-json" @click="triggerImport">导入项目 JSON</button>
+        <button class="mc-button primary" data-action="load-sample" @click="loadSample">{{ t('shell.dashboard.loadSample') }}</button>
+        <button class="mc-button" data-action="project-import" @click="triggerImport">{{ t('shell.dashboard.emptyImport') }}</button>
+        <button class="mc-button" data-action="project-import-json" @click="triggerImport">{{ t('shell.dashboard.emptyImportJson') }}</button>
       </div>
     </div>
 
     <div v-else class="project-layout">
       <main class="project-main">
         <section class="project-card">
-          <h2>订单 <span class="count">{{ totalStats.orders }}</span></h2>
+          <h2>{{ t('shell.dashboard.ordersTitle') }} <span class="count">{{ totalStats.orders }}</span></h2>
           <div class="file-list">
             <button
               v-for="file in ordersFiles"
@@ -401,19 +425,19 @@ function onDropZone(event: DragEvent): void {
               @click="selectFile(file.path)"
             >
               <span class="file-name"><code>{{ file.path }}</code></span>
-              <span class="file-kind">订单</span>
+              <span class="file-kind">{{ t('shell.dashboard.kindOrders') }}</span>
               <span class="file-issues">
-                <span v-if="issueCountsFor(file.path).error" class="badge error">{{ issueCountsFor(file.path).error }} 错误</span>
-                <span v-else-if="issueCountsFor(file.path).warning" class="badge warning">{{ issueCountsFor(file.path).warning }} 警告</span>
-                <span v-else class="badge ok">正常</span>
+                <span v-if="issueCountsFor(file.path).error" class="badge error">{{ t('shell.dashboard.errorBadge', { count: issueCountsFor(file.path).error }) }}</span>
+                <span v-else-if="issueCountsFor(file.path).warning" class="badge warning">{{ t('shell.dashboard.warningBadge', { count: issueCountsFor(file.path).warning }) }}</span>
+                <span v-else class="badge ok">{{ t('shell.dashboard.statusNormal') }}</span>
               </span>
             </button>
-            <p v-if="ordersFiles.length === 0" class="project-hint">尚未导入 orders.yml。</p>
+            <p v-if="ordersFiles.length === 0" class="project-hint">{{ t('shell.dashboard.noOrders') }}</p>
           </div>
         </section>
 
         <section class="project-card">
-          <h2>专精（可加载） <span class="count">{{ totalStats.focus }}/2</span></h2>
+          <h2>{{ t('shell.dashboard.focusTitle') }} <span class="count">{{ totalStats.focus }}/2</span></h2>
           <div class="file-list">
             <button
               v-for="path in ['focus/none.yml', 'focus/mob.yml']"
@@ -424,17 +448,17 @@ function onDropZone(event: DragEvent): void {
               @click="store.files[path] && selectFile(path)"
             >
               <span class="file-name"><code>{{ path }}</code></span>
-              <span class="file-kind">固定加载</span>
+              <span class="file-kind">{{ t('shell.dashboard.fixedLoad') }}</span>
               <span class="file-issues">
-                <span v-if="!store.files[path]" class="badge missing">未导入</span>
-                <span v-else-if="issueCountsFor(path).error" class="badge error">{{ issueCountsFor(path).error }} 错误</span>
-                <span v-else-if="issueCountsFor(path).warning" class="badge warning">{{ issueCountsFor(path).warning }} 警告</span>
-                <span v-else class="badge ok">正常</span>
+                <span v-if="!store.files[path]" class="badge missing">{{ t('shell.dashboard.notImported') }}</span>
+                <span v-else-if="issueCountsFor(path).error" class="badge error">{{ t('shell.dashboard.errorBadge', { count: issueCountsFor(path).error }) }}</span>
+                <span v-else-if="issueCountsFor(path).warning" class="badge warning">{{ t('shell.dashboard.warningBadge', { count: issueCountsFor(path).warning }) }}</span>
+                <span v-else class="badge ok">{{ t('shell.dashboard.statusNormal') }}</span>
               </span>
             </button>
           </div>
           <div v-if="referenceFocus.length" class="reference-files">
-            <h3>参考 focus（不会被加载，也不导出）</h3>
+            <h3>{{ t('shell.dashboard.referenceTitle') }}</h3>
             <button
               v-for="file in referenceFocus"
               :key="file.path"
@@ -444,13 +468,13 @@ function onDropZone(event: DragEvent): void {
               @click="selectFile(file.path)"
             >
               <span class="file-name"><code>{{ file.path }}</code></span>
-              <span class="badge reference">参考</span>
+              <span class="badge reference">{{ t('shell.dashboard.referenceBadge') }}</span>
             </button>
           </div>
         </section>
 
         <section class="project-card">
-          <h2>菜单 <span class="count">{{ totalStats.menus }}/18</span></h2>
+          <h2>{{ t('shell.dashboard.menusTitle') }} <span class="count">{{ totalStats.menus }}/18</span></h2>
           <div class="menu-grid">
             <button
               v-for="entry in menuCards"
@@ -461,14 +485,14 @@ function onDropZone(event: DragEvent): void {
               @click="entry.file && selectFile(entry.file.path)"
             >
               <code>menu/{{ entry.id }}.yml</code>
-              <span v-if="!entry.file" class="badge missing">未导入</span>
-              <span v-else-if="issueCountsFor(entry.file.path).error" class="badge error">{{ issueCountsFor(entry.file.path).error }} 错误</span>
-              <span v-else-if="issueCountsFor(entry.file.path).warning" class="badge warning">{{ issueCountsFor(entry.file.path).warning }} 警告</span>
-              <span v-else class="badge ok">正常</span>
+              <span v-if="!entry.file" class="badge missing">{{ t('shell.dashboard.notImported') }}</span>
+              <span v-else-if="issueCountsFor(entry.file.path).error" class="badge error">{{ t('shell.dashboard.errorBadge', { count: issueCountsFor(entry.file.path).error }) }}</span>
+              <span v-else-if="issueCountsFor(entry.file.path).warning" class="badge warning">{{ t('shell.dashboard.warningBadge', { count: issueCountsFor(entry.file.path).warning }) }}</span>
+              <span v-else class="badge ok">{{ t('shell.dashboard.statusNormal') }}</span>
             </button>
           </div>
           <div v-if="nonFixedMenus.length" class="reference-files">
-            <h3>非固定菜单（插件不会加载，不导出）</h3>
+            <h3>{{ t('shell.dashboard.nonFixedMenus') }}</h3>
             <button
               v-for="file in nonFixedMenus"
               :key="file.path"
@@ -476,13 +500,13 @@ function onDropZone(event: DragEvent): void {
               :data-file="file.path"
               @click="selectFile(file.path)"
             >
-              <code>{{ file.path }}</code><span class="badge warning">不会被加载</span>
+              <code>{{ file.path }}</code><span class="badge warning">{{ t('shell.dashboard.notLoadedBadge') }}</span>
             </button>
           </div>
         </section>
 
         <section v-if="legacyFiles.length || otherFiles.length" class="project-card">
-          <h2>只读 / 其他</h2>
+          <h2>{{ t('shell.dashboard.legacyTitle') }}</h2>
           <button
             v-for="file in [...legacyFiles, ...otherFiles]"
             :key="file.path"
@@ -491,31 +515,27 @@ function onDropZone(event: DragEvent): void {
             @click="selectFile(file.path)"
           >
             <span class="file-name"><code>{{ file.path }}</code></span>
-            <span class="badge reference">{{ file.kind === 'focus-tree' || file.kind === 'menus-config' ? '遗留配置 · 不导出' : '未识别' }}</span>
+            <span class="badge reference">{{ file.kind === 'focus-tree' || file.kind === 'menus-config' ? t('shell.dashboard.legacyBadge') : t('shell.dashboard.unknownBadge') }}</span>
           </button>
-          <p class="project-hint">
-            <code>focus.yml</code> 的 focus-tree 解析代码已注释；<code>menus.yml</code> 的 global.no-perm 仅赋值未使用；
-            两者只读展示，不进入导出 ZIP。
-          </p>
+          <p class="project-hint">{{ t('shell.dashboard.legacyNote') }}</p>
         </section>
 
         <section v-if="selectedDetail" class="project-card file-detail" data-testid="file-detail">
-          <h2>文件详情</h2>
+          <h2>{{ t('shell.dashboard.detailTitle') }}</h2>
           <div class="detail-head">
             <h3><code>{{ selectedDetail.file.path }}</code></h3>
             <button class="mc-button small" data-action="project-open-editor" @click="openInEditor(selectedDetail.file.path)">
-              打开对应编辑器
+              {{ t('shell.dashboard.openEditor') }}
             </button>
           </div>
           <p v-if="!selectedDetail.parsedOk" class="inline-error">
             {{ selectedDetail.parseError }}
             <span v-if="selectedDetail.parseLine">
-              · 第 {{ selectedDetail.parseLine }} 行<template v-if="selectedDetail.parseColumn">，第 {{ selectedDetail.parseColumn }} 列</template>
+              <template v-if="selectedDetail.parseColumn">{{ t('shell.dashboard.parseLineColumn', { line: selectedDetail.parseLine, column: selectedDetail.parseColumn }) }}</template><template v-else>{{ t('shell.dashboard.parseLine', { line: selectedDetail.parseLine }) }}</template>
             </span>
           </p>
           <p class="project-hint">
-            顶层条目（{{ selectedDetail.topKeys.length }}） · 字符数 {{ selectedDetail.file.text.length }} ·
-            错误 {{ selectedIssueCounts.error }} · 警告 {{ selectedIssueCounts.warning }} · 提示 {{ selectedIssueCounts.info }}
+            {{ t('shell.dashboard.detailMeta', { keys: selectedDetail.topKeys.length, chars: selectedDetail.file.text.length, errors: selectedIssueCounts.error, warnings: selectedIssueCounts.warning, infos: selectedIssueCounts.info }) }}
           </p>
           <ul v-if="selectedDetail.topKeys.length" class="top-key-list">
             <li v-for="key in selectedDetail.topKeys" :key="key"><code>{{ key }}</code></li>
@@ -523,57 +543,59 @@ function onDropZone(event: DragEvent): void {
           <ul v-if="selectedDetail.issues.length" class="detail-issues">
             <li v-for="(issue, index) in selectedDetail.issues.slice(0, 12)" :key="index" :class="issue.severity">
               <code>{{ issue.code }}</code> {{ issue.message }}
+              <p v-if="issue.fixHint" class="issue-fix">{{ issue.fixHint }}</p>
             </li>
           </ul>
         </section>
 
         <section class="project-card global-validation" data-testid="global-validation">
-          <h2>全局校验</h2>
+          <h2>{{ t('shell.dashboard.validationTitle') }}</h2>
           <div class="validation-filters">
             <label class="field">
-              <span class="field-label">严重级</span>
+              <span class="field-label">{{ t('shell.dashboard.severity') }}</span>
               <select v-model="selectedSeverity" class="mc-select" data-field="issue-severity">
-                <option value="all">全部（{{ allIssues.length }}）</option>
-                <option value="error">错误（{{ counts.error }}）</option>
-                <option value="warning">警告（{{ counts.warning }}）</option>
-                <option value="info">提示（{{ counts.info }}）</option>
+                <option value="all">{{ t('shell.dashboard.all', { count: allIssues.length }) }}</option>
+                <option value="error">{{ t('shell.dashboard.errors', { count: counts.error }) }}</option>
+                <option value="warning">{{ t('shell.dashboard.warnings', { count: counts.warning }) }}</option>
+                <option value="info">{{ t('shell.dashboard.infos', { count: counts.info }) }}</option>
               </select>
             </label>
             <label class="field">
-              <span class="field-label">文件</span>
+              <span class="field-label">{{ t('shell.dashboard.file') }}</span>
               <select v-model="selectedFileFilter" class="mc-select" data-field="issue-file">
-                <option value="all">全部文件</option>
+                <option value="all">{{ t('shell.dashboard.allFiles') }}</option>
                 <option v-for="path in issueFiles" :key="path" :value="path">{{ path }}</option>
               </select>
             </label>
             <span class="export-state" :class="{ blocked: exportBlockers.length > 0 }">
-              {{ exportBlockers.length ? `导出被阻止（${exportBlockers.length}）` : '可导出' }}
+              {{ exportBlockers.length ? t('shell.dashboard.exportBlocked', { count: exportBlockers.length }) : t('shell.dashboard.exportable') }}
             </span>
           </div>
-          <p v-if="filteredIssues.length === 0" class="project-hint">没有匹配的问题。</p>
+          <p v-if="filteredIssues.length === 0" class="project-hint">{{ t('shell.dashboard.noMatchingIssues') }}</p>
           <ul v-else class="global-issue-list">
             <li v-for="(issue, index) in filteredIssues" :key="index" :class="issue.severity">
               <div>
-                <code>{{ issue.file || '项目' }}</code>
+                <code>{{ issue.file || t('shell.dashboard.project') }}</code>
                 <span v-if="issue.path"> · {{ issue.path }}</span>
                 <span class="issue-code">{{ issue.code }}</span>
                 <div>{{ issue.message }}</div>
+                <div v-if="issue.fixHint" class="issue-fix">{{ issue.fixHint }}</div>
               </div>
               <button v-if="issue.file && store.files[issue.file]" class="mc-button tiny" @click="locateIssue(issue)">
-                定位
+                {{ t('shell.dashboard.locate') }}
               </button>
             </li>
           </ul>
         </section>
 
         <details class="project-card help-panel" data-testid="project-help">
-          <summary><h2>帮助 / 字段速查</h2></summary>
+          <summary><h2>{{ t('shell.dashboard.helpTitle') }}</h2></summary>
           <div class="help-grid">
             <section>
-              <h3>订单 quest / reward</h3>
+              <h3>{{ HELP_LABELS.questReward }}</h3>
               <ul>
                 <li v-for="quest in QUEST_TYPES" :key="quest.id">
-                  <code>{{ quest.id }}</code> · {{ quest.label }} · 目标 {{ quest.target }}
+                  <code>{{ quest.id }}</code> · {{ quest.label }} · {{ HELP_LABELS.target }} {{ quest.target }}
                 </li>
               </ul>
               <ul>
@@ -583,21 +605,21 @@ function onDropZone(event: DragEvent): void {
               </ul>
             </section>
             <section>
-              <h3>专精限制</h3>
+              <h3>{{ HELP_LABELS.focusLimits }}</h3>
               <ul>
-                <li v-for="line in FOCUS_LIMITS" :key="line">{{ line }}</li>
+                <li v-for="(line, index) in FOCUS_LIMITS" :key="index">{{ line.text }}</li>
               </ul>
             </section>
             <section>
-              <h3>菜单与语言文件</h3>
+              <h3>{{ HELP_LABELS.menuLanguage }}</h3>
               <ul>
-                <li v-for="line in MENU_LIMITS" :key="line">{{ line }}</li>
+                <li v-for="(line, index) in MENU_LIMITS" :key="index">{{ line.text }}</li>
               </ul>
             </section>
             <section>
-              <h3>生效方式</h3>
+              <h3>{{ HELP_LABELS.activation }}</h3>
               <table class="activation-table">
-                <thead><tr><th>文件</th><th>生效方式</th><th>说明</th></tr></thead>
+                <thead><tr><th>{{ HELP_LABELS.file }}</th><th>{{ HELP_LABELS.mode }}</th><th>{{ HELP_LABELS.detail }}</th></tr></thead>
                 <tbody>
                   <tr v-for="row in ACTIVATION_ROWS" :key="row.file">
                     <td><code>{{ row.file }}</code></td><td>{{ row.mode }}</td><td>{{ row.detail }}</td>
@@ -606,9 +628,9 @@ function onDropZone(event: DragEvent): void {
               </table>
             </section>
             <section>
-              <h3>部署摘要</h3>
+              <h3>{{ HELP_LABELS.deployment }}</h3>
               <ol>
-                <li v-for="step in DEPLOYMENT_STEPS" :key="step">{{ step }}</li>
+                <li v-for="(step, index) in DEPLOYMENT_STEPS" :key="index">{{ step.text }}</li>
               </ol>
             </section>
           </div>
@@ -617,38 +639,37 @@ function onDropZone(event: DragEvent): void {
 
       <aside class="project-side">
         <section class="project-card">
-          <h2>项目状态</h2>
+          <h2>{{ t('shell.dashboard.statusTitle') }}</h2>
           <dl class="status-list">
-            <dt>本地自动保存</dt>
-            <dd>{{ store.isLocallySaved ? '已保存' : '保存中…' }}</dd>
-            <dt>未导出修改</dt>
-            <dd>{{ store.isDirty ? '有' : '无' }}</dd>
-            <dt>可导出文件</dt>
+            <dt>{{ t('shell.dashboard.autoSavedLabel') }}</dt>
+            <dd>{{ store.isLocallySaved ? t('shell.dashboard.statusSaved') : t('shell.dashboard.statusSaving') }}</dd>
+            <dt>{{ t('shell.dashboard.unexportedLabel') }}</dt>
+            <dd>{{ store.isDirty ? t('shell.dashboard.unexportedYes') : t('shell.dashboard.unexportedNo') }}</dd>
+            <dt>{{ t('shell.dashboard.exportableLabel') }}</dt>
             <dd>{{ exportableCount }}</dd>
-            <dt>导出阻断</dt>
-            <dd>{{ exportBlockers.length }} 条</dd>
-            <dt>参考 focus</dt>
-            <dd>{{ referenceFocus.length }} 个（不导出）</dd>
+            <dt>{{ t('shell.dashboard.blockedLabel') }}</dt>
+            <dd>{{ t('shell.dashboard.blockedCount', { count: exportBlockers.length }) }}</dd>
+            <dt>{{ t('shell.dashboard.refFocusLabel') }}</dt>
+            <dd>{{ t('shell.dashboard.refFocusCount', { count: referenceFocus.length }) }}</dd>
           </dl>
           <p class="project-hint">
-            项目 JSON 保存全部文件（含参考 focus）；ZIP 只导出插件会加载的文件。
+            {{ t('shell.dashboard.jsonNote') }}
           </p>
-          <button class="mc-button" data-action="project-save-json" @click="downloadProjectJson">下载项目 JSON</button>
-          <button class="mc-button" data-action="project-import-json" @click="triggerImport">导入项目 JSON</button>
+          <button class="mc-button" data-action="project-save-json" @click="downloadProjectJson">{{ t('shell.dashboard.saveJson') }}</button>
+          <button class="mc-button" data-action="project-import-json" @click="triggerImport">{{ t('shell.dashboard.importJson') }}</button>
         </section>
         <section class="project-card">
-          <h2>导入说明</h2>
+          <h2>{{ t('shell.dashboard.importHelpTitle') }}</h2>
           <p class="project-hint">
-            支持多选 YAML、拖拽、ZIP 与项目 JSON。ZIP 内路径按 <code>orders.yml</code>、
-            <code>focus/*.yml</code>、<code>menu/*.yml</code> 识别；坏文件只记录校验问题，不阻断其它文件。
+            {{ t('shell.dashboard.importHelpText') }}
           </p>
-          <p class="project-hint">冲突文件会先询问是否替换。</p>
+          <p class="project-hint">{{ t('shell.dashboard.conflictNote') }}</p>
         </section>
       </aside>
     </div>
 
     <div v-if="dragging" class="project-drop-overlay" @dragover.prevent>
-      <div>松开以导入 YAML / ZIP / 项目 JSON</div>
+      <div>{{ t('shell.dashboard.dropText') }}</div>
     </div>
   </div>
 </template>

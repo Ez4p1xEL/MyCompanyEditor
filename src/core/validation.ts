@@ -1,5 +1,16 @@
+import { t } from '../i18n';
 import type { ProjectFile, ValidationIssue } from './types';
-import { parseYamlText, type ParsedYaml } from './yaml';
+import { parseYamlText, setYamlTranslator, type ParsedYaml } from './yaml';
+
+export function validationKey(source: string): string {
+  return encodeURIComponent(source).replace(/\./g, '%2E');
+}
+
+export function validationText(source: string, params?: Record<string, string | number>): string {
+  return t(`validation.${validationKey(source)}`, params);
+}
+
+setYamlTranslator((source, params) => validationText(source, params));
 
 /**
  * 校验框架。
@@ -52,8 +63,8 @@ function validateYamlBasics(file: ProjectFile, parsed: ParsedYaml): ValidationIs
       line: parsed.syntaxError.line,
       column: parsed.syntaxError.column,
       code: 'YAML_PARSE',
-      message: `YAML 解析失败：${parsed.syntaxError.message}`,
-      fixHint: '修正语法后会自动重新校验；导出前必须消除该错误',
+      message: validationText("YAML 解析失败：{p0}", { p0: parsed.syntaxError.message }),
+      fixHint: validationText("修正语法后会自动重新校验；导出前必须消除该错误"),
       blocking: true,
     });
   }
@@ -67,7 +78,7 @@ function validateYamlBasics(file: ProjectFile, parsed: ParsedYaml): ValidationIs
       column: anchor.column,
       code: 'YAML_ANCHOR_ALIAS',
       message: anchor.message,
-      fixHint: '编辑器不支持锚点/别名，请展开为普通 YAML 后再导入',
+      fixHint: validationText("编辑器不支持锚点/别名，请展开为普通 YAML 后再导入"),
       blocking: true,
     });
   }
@@ -79,8 +90,8 @@ function validateYamlBasics(file: ProjectFile, parsed: ParsedYaml): ValidationIs
       path: duplicate.path,
       line: duplicate.line,
       code: 'YAML_DUPLICATE_KEY',
-      message: `重复键 “${duplicate.key}”：后者会覆盖前者，行为不可预测`,
-      fixHint: '重命名或删除重复键',
+      message: validationText("重复键 “{p0}”：后者会覆盖前者，行为不可预测", { p0: duplicate.key }),
+      fixHint: validationText("重命名或删除重复键"),
     });
   }
 
@@ -90,8 +101,8 @@ function validateYamlBasics(file: ProjectFile, parsed: ParsedYaml): ValidationIs
       file: file.path,
       path: '$',
       code: 'YAML_BOM',
-      message: '文件包含 UTF-8 BOM，导出时会自动移除',
-      fixHint: '保存为无 BOM 的 UTF-8 文件',
+      message: validationText("文件包含 UTF-8 BOM，导出时会自动移除"),
+      fixHint: validationText("保存为无 BOM 的 UTF-8 文件"),
     });
   }
 
@@ -101,8 +112,8 @@ function validateYamlBasics(file: ProjectFile, parsed: ParsedYaml): ValidationIs
       file: file.path,
       path: '$',
       code: 'YAML_CRLF',
-      message: '文件使用 CRLF 换行，导出时会统一为 LF（语义不变）',
-      fixHint: '如需统一源文件，可保存为 LF 换行',
+      message: validationText("文件使用 CRLF 换行，导出时会统一为 LF（语义不变）"),
+      fixHint: validationText("如需统一源文件，可保存为 LF 换行"),
     });
   }
 
@@ -112,8 +123,8 @@ function validateYamlBasics(file: ProjectFile, parsed: ParsedYaml): ValidationIs
       file: file.path,
       path: '$',
       code: 'FILE_EMPTY',
-      message: '文件为空',
-      fixHint: '导入有效的 YAML 内容或删除该文件',
+      message: validationText("文件为空"),
+      fixHint: validationText("导入有效的 YAML 内容或删除该文件"),
     });
   }
 
@@ -123,8 +134,8 @@ function validateYamlBasics(file: ProjectFile, parsed: ParsedYaml): ValidationIs
       file: file.path,
       path: '$',
       code: 'FILE_UNKNOWN_KIND',
-      message: '无法识别文件类型，仅按普通 YAML 原样保存',
-      fixHint: '确认文件名（orders.yml / focus/*.yml / menu/*.yml）或内容结构',
+      message: validationText("无法识别文件类型，仅按普通 YAML 原样保存"),
+      fixHint: validationText("确认文件名（orders.yml / focus/*.yml / menu/*.yml）或内容结构"),
     });
   }
 
@@ -136,9 +147,9 @@ function validateYamlBasics(file: ProjectFile, parsed: ParsedYaml): ValidationIs
       code: 'FILE_LEGACY',
       message:
         file.kind === 'focus-tree'
-          ? 'focus.yml（专精树）是遗留配置：当前插件版本不读取，修改不会生效'
-          : 'menus.yml 是遗留配置：当前插件版本不读取，修改不会生效',
-      fixHint: '保留原样即可；如需调整请修改对应的 focus/*.yml 或 menu/*.yml',
+          ? validationText("focus.yml（专精树）是遗留配置：当前插件版本不读取，修改不会生效")
+          : validationText("menus.yml 是遗留配置：当前插件版本不读取，修改不会生效"),
+      fixHint: validationText("保留原样即可；如需调整请修改对应的 focus/*.yml 或 menu/*.yml"),
     });
   }
 
@@ -185,8 +196,8 @@ export function validateProject(files: ProjectFile[]): ValidationResult {
         file: '',
         path: '$',
         code: 'VALIDATOR_FAILED',
-        message: `功能校验器执行失败：${error instanceof Error ? error.message : String(error)}`,
-        fixHint: '该问题通常意味着编辑器缺陷，请反馈；其余校验结果仍然有效',
+        message: validationText("功能校验器执行失败：{p0}", { p0: error instanceof Error ? error.message : String(error) }),
+        fixHint: validationText("该问题通常意味着编辑器缺陷，请反馈；其余校验结果仍然有效"),
       });
     }
   }

@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { ordersText as tx } from './ordersConstants';
 import { computed } from 'vue';
 import { renderColorSegments } from './ordersConstants';
 
 const props = defineProps<{ text: string }>();
 
-const segments = computed(() => renderColorSegments(props.text || '（空）'));
+const segments = computed(() => renderColorSegments(props.text || tx('（空）')));
 </script>
 
 <template>

@@ -3,8 +3,11 @@ import { createPinia, setActivePinia } from 'pinia';
 import App from './App.vue';
 import { pushToast } from './core/toast';
 import { useProjectStore } from './store/project';
+import { initLocale } from './i18n';
 import './styles/theme.css';
 import './styles/minecraft.css';
+
+initLocale();
 
 const app = createApp(App);
 const pinia = createPinia();

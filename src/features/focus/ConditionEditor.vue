@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { focusText as tx } from './focusConstants';
+import { getLocale } from '../../i18n';
 import type { ConditionModel } from './focusDoc';
 import {
   CONDITION_TYPES,
@@ -101,11 +103,8 @@ function removeLog(index: number): void {
 
 <template>
   <div class="condition-editor" data-editor="condition">
-    <p v-if="model.kind !== 'map' && model.kind !== 'missing'" class="inline-warning">
-      condition 当前是 {{ model.kind }}，不是映射；编辑任意条件会重建为映射（原值会丢失，请先备份）。
-    </p>
-    <p v-else-if="model.kind === 'missing'" class="muted">
-      condition 段缺失；勾选任意条件会自动创建。节点必须有 condition（可为 <code>{}</code>）。
+    <p v-if="model.kind !== 'map' && model.kind !== 'missing'" class="inline-warning"> {{ tx("condition 当前是") }} {{ model.kind }}{{ tx("，不是映射；编辑任意条件会重建为映射（原值会丢失，请先备份）。") }} </p>
+    <p v-else-if="model.kind === 'missing'" class="muted"> {{ tx("condition 段缺失；勾选任意条件会自动创建。节点必须有 condition（可为") }} <code>{}</code>{{ getLocale() === 'en' ? ').' : '）。' }}
     </p>
 
     <div v-for="meta in CONDITION_TYPES" :key="meta.value" class="condition-row">
@@ -139,7 +138,7 @@ function removeLog(index: number): void {
           :data-condition-input="meta.value"
           @change="setExpertise"
         >
-          <option value="">（空，永远不满足）</option>
+          <option value="">{{ tx("（空，永远不满足）") }}</option>
           <option v-for="id in expertiseIds" :key="id" :value="id">{{ id }}</option>
         </select>
         <div v-else-if="meta.kind === 'expertises'" class="list-editor">
@@ -148,14 +147,12 @@ function removeLog(index: number): void {
               class="mc-input"
               :value="group"
               :data-condition-input="`expertises-${index}`"
-              placeholder="a,b 表示 a 或 b；多行之间是 AND"
+              :placeholder="tx('a,b 表示 a 或 b；多行之间是 AND')"
               @input="setOrGroup(index, $event)"
             />
-            <button class="mc-button tiny" type="button" @click="removeOrGroup(index)">删除</button>
+            <button class="mc-button tiny" type="button" @click="removeOrGroup(index)">{{ tx("删除") }}</button>
           </div>
-          <button class="mc-button tiny" type="button" data-action="condition-add-or" @click="addOrGroup">
-            + 添加一组
-          </button>
+          <button class="mc-button tiny" type="button" data-action="condition-add-or" @click="addOrGroup"> {{ tx("+ 添加一组") }} </button>
         </div>
         <div v-else-if="meta.kind === 'logs'" class="list-editor">
           <div v-for="(row, index) in model.companyLog?.items ?? []" :key="`${index}-${row}`" class="log-row">
@@ -172,7 +169,7 @@ function removeLog(index: number): void {
               list="focus-entity-options"
               :value="logRow(index).entity"
               :data-condition-input="`company-log-entity-${index}`"
-              placeholder="ZOMBIE（大写枚举）"
+              :placeholder="tx('ZOMBIE（大写枚举）')"
               @input="setLog(index, { entity: ($event.target as HTMLInputElement).value })"
             />
             <input
@@ -182,20 +179,18 @@ function removeLog(index: number): void {
               :data-condition-input="`company-log-threshold-${index}`"
               @input="setLog(index, { threshold: ($event.target as HTMLInputElement).value })"
             />
-            <button class="mc-button tiny" type="button" @click="removeLog(index)">删除</button>
+            <button class="mc-button tiny" type="button" @click="removeLog(index)">{{ tx("删除") }}</button>
           </div>
-          <button class="mc-button tiny" type="button" data-action="condition-add-log" @click="addLog">
-            + 添加计数条件
-          </button>
+          <button class="mc-button tiny" type="button" data-action="condition-add-log" @click="addLog"> {{ tx("+ 添加计数条件") }} </button>
         </div>
       </template>
     </div>
 
     <details v-if="model.unknown.length" class="extras">
-      <summary>未识别条件键 {{ model.unknown.length }} 个（原样保留，插件忽略）</summary>
+      <summary>{{ tx("未识别条件键") }} {{ model.unknown.length }} {{ tx("个（原样保留，插件忽略）") }}</summary>
       <ul>
         <li v-for="extra in model.unknown" :key="extra.key">
-          <code>{{ extra.key }}</code>：{{ extra.preview }}
+          <code>{{ extra.key }}</code>: {{ extra.preview }}
         </li>
       </ul>
     </details>

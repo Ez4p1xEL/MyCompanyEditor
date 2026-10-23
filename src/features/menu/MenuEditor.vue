@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { menuText as tx } from './menuConstants';
+import { getLocale } from '../../i18n';
 import { computed, ref, shallowRef, watch } from 'vue';
 import type { Document } from 'yaml';
 import { downloadTextFile } from '../../core/download';
@@ -10,6 +12,7 @@ import LanguagePanel from './LanguagePanel.vue';
 import MenuIcon from './MenuIcon.vue';
 import {
   MENU_CATEGORIES,
+  menuCategoryText,
   MENU_META,
   MATERIAL_OPTIONS,
   PLAYER_HEAD_PRESETS,
@@ -52,6 +55,12 @@ import { downloadZip, type ZipEntry } from './menuZip';
 ensureMenuValidatorRegistered();
 
 const store = useProjectStore();
+
+function sizeOptionLabel(size: number): string {
+  const rows = size / 9;
+  if (getLocale() === 'en') return `${size} (${rows} ${rows === 1 ? 'row' : 'rows'})`;
+  return `${size}（${rows} 行）`;
+}
 const doc = shallowRef<Document | null>(null);
 const model = ref<MenuFileModel>(buildMenuModel(null, '', menuPath('main')));
 const selectedId = ref<string | null>(null);
@@ -150,7 +159,7 @@ const yamlPreview = computed(() => {
   try {
     return serializeMenu(doc.value);
   } catch (error) {
-    return `预览生成失败：${error instanceof Error ? error.message : String(error)}`;
+    return tx('预览生成失败：{error}', { error: error instanceof Error ? error.message : String(error) });
   }
 });
 
@@ -225,17 +234,17 @@ async function onImport(event: Event): Promise<void> {
     entries.push({ id, text: await uploaded.text() });
   }
   if (unknown.length > 0) {
-    pushToast(`已跳过 ${unknown.length} 个未知菜单 id：${unknown.join(', ')}；插件不会加载`, 'warning');
+    pushToast(tx('已跳过 {count} 个未知菜单 id：{ids}；插件不会加载', { count: unknown.length, ids: unknown.join(', ') }), 'warning');
   }
   if (entries.length === 0) return;
   const existing = entries.filter((entry) => store.files[menuPath(entry.id)]);
-  if (existing.length > 0 && !window.confirm(`将替换 ${existing.length} 个已有菜单文件，继续？`)) return;
+  if (existing.length > 0 && !window.confirm(tx('将替换 {count} 个已有菜单文件，继续？', { count: existing.length }))) return;
   for (const entry of entries) {
     store.upsertFile(menuPath(entry.id), entry.text, 'menu');
   }
   selectedId.value = entries[entries.length - 1]!.id;
   selectedItemId.value = null;
-  pushToast(`已导入 ${entries.length} 个菜单文件`, 'success');
+  pushToast(tx('已导入 {count} 个菜单文件', { count: entries.length }), 'success');
 }
 
 function chooseMenu(id: string): void {
@@ -267,7 +276,7 @@ function firstFreeSlot(): number | null {
 function assignItemToSlot(item: MenuItemModel, slot: number, options: { copy?: boolean; fromSlot?: number | null } = {}): void {
   if (!doc.value) return;
   if (item.id === 'default') {
-    pushToast('default 是空槽填充物，不占用具体槽位', 'info');
+    pushToast(tx('default 是空槽填充物，不占用具体槽位'), 'info');
     return;
   }
   const mode = itemSlotMode(item);
@@ -343,32 +352,32 @@ function addNewItem(): void {
   if (!doc.value) return;
   const id = newItemId.value.trim();
   if (!id) {
-    pushToast('物品 id 不能为空', 'error');
+    pushToast(tx('物品 id 不能为空'), 'error');
     return;
   }
   if (!/^[A-Za-z0-9_]+$/.test(id)) {
-    pushToast('物品 id 建议只使用字母、数字、下划线', 'error');
+    pushToast(tx('物品 id 建议只使用字母、数字、下划线'), 'error');
     return;
   }
   if (id === 'default') {
-    pushToast('default 已保留为背景填充物', 'error');
+    pushToast(tx('default 已保留为背景填充物'), 'error');
     return;
   }
   if (model.value.items.some((item) => item.id === id)) {
-    pushToast(`物品 “${id}” 已存在`, 'error');
+    pushToast(tx('物品 “{id}” 已存在', { id }), 'error');
     return;
   }
   const slot = firstFreeSlot();
   const plain: Record<string, unknown> = { material: 'PAPER' };
   if (slot !== null) plain.slot = slot;
   if (!addItem(doc.value, id, plain)) {
-    pushToast('新增失败：items 结构异常', 'error');
+    pushToast(tx('新增失败：items 结构异常'), 'error');
     return;
   }
   newItemId.value = '';
   persist();
   selectedItemId.value = id;
-  pushToast(`已新增物品 ${id}`, 'success');
+  pushToast(tx('已新增物品 {id}', { id }), 'success');
 }
 
 function duplicateSelectedItem(): void {
@@ -383,7 +392,7 @@ function duplicateSelectedItem(): void {
   if (!duplicateItem(doc.value, item.id, id)) return;
   persist();
   selectedItemId.value = id;
-  pushToast(`已复制为 ${id}`, 'success');
+  pushToast(tx('已复制为 {id}', { id }), 'success');
 }
 
 function removeSelectedItem(): void {
@@ -391,8 +400,8 @@ function removeSelectedItem(): void {
   if (!item || !doc.value) return;
   const required = meta.value?.templates.includes(item.id) || item.id === 'default';
   const message = required
-    ? `“${item.id}” 是菜单关键物品（模板/default），删除后可能导致菜单打不开或无背景。确定删除？`
-    : `确定删除物品 “${item.id}”？`;
+    ? tx('“{id}” 是菜单关键物品（模板/default），删除后可能导致菜单打不开或无背景。确定删除？', { id: item.id })
+    : tx('确定删除物品 “{id}”？', { id: item.id });
   if (!window.confirm(message)) return;
   const index = model.value.items.findIndex((entry) => entry.id === item.id);
   if (!deleteItem(doc.value, item.id)) return;
@@ -419,12 +428,12 @@ function renameSelectedItem(event: Event): void {
   const next = input.value.trim();
   if (next === item.id) return;
   if (!next || !/^[A-Za-z0-9_]+$/.test(next)) {
-    pushToast('物品 id 只能包含字母、数字、下划线', 'error');
+    pushToast(tx('物品 id 只能包含字母、数字、下划线'), 'error');
     input.value = item.id;
     return;
   }
   if (model.value.items.some((entry) => entry.id === next)) {
-    pushToast(`物品 “${next}” 已存在`, 'error');
+    pushToast(tx('物品 “{id}” 已存在', { id: next }), 'error');
     input.value = item.id;
     return;
   }
@@ -465,7 +474,7 @@ function makeSingleSlot(): void {
   if (!item || !doc.value) return;
   const slot = selectedSlot.value ?? firstFreeSlot();
   if (slot === null) {
-    pushToast('没有可用空槽位', 'warning');
+    pushToast(tx('没有可用空槽位'), 'warning');
     return;
   }
   setItemSlot(doc.value, item.id, slot);
@@ -480,7 +489,7 @@ function makeMultiSlot(): void {
   const next = [...existing];
   if (slot !== null && !next.includes(slot)) next.push(slot);
   if (next.length === 0) {
-    pushToast('请先点击一个槽位或填写槽位号', 'warning');
+    pushToast(tx('请先点击一个槽位或填写槽位号'), 'warning');
     return;
   }
   setItemSlots(doc.value, item.id, next);
@@ -493,12 +502,12 @@ function addSlotNumber(): void {
   const input = document.querySelector<HTMLInputElement>('[data-field="menu-slot-add"]');
   const slot = Number(input?.value ?? '');
   if (!Number.isInteger(slot)) {
-    pushToast('槽位必须是整数', 'error');
+    pushToast(tx('槽位必须是整数'), 'error');
     return;
   }
   const current = itemSlots(item);
   if (current.includes(slot)) {
-    pushToast(`槽位 ${slot} 已在列表中`, 'warning');
+    pushToast(tx('槽位 {slot} 已在列表中', { slot }), 'warning');
     return;
   }
   setItemSlots(doc.value, item.id, [...current, slot]);
@@ -526,15 +535,15 @@ function addOption(): void {
   if (!doc.value) return;
   const key = newOptionKey.value.trim();
   if (!key) {
-    pushToast('options 键不能为空', 'error');
+    pushToast(tx('options 键不能为空'), 'error');
     return;
   }
   if (model.value.options.some((option) => option.key === key)) {
-    pushToast(`options.${key} 已存在`, 'error');
+    pushToast(tx('options.{key} 已存在', { key }), 'error');
     return;
   }
   if (!setOption(doc.value, key, '')) {
-    pushToast('options 结构异常，无法添加', 'error');
+    pushToast(tx('options 结构异常，无法添加'), 'error');
     return;
   }
   newOptionKey.value = '';
@@ -566,7 +575,7 @@ function renameOptionKey(oldKey: string, event: Event): void {
     return;
   }
   if (model.value.options.some((option) => option.key === next)) {
-    pushToast(`options.${next} 已存在`, 'error');
+    pushToast(tx('options.{key} 已存在', { key: next }), 'error');
     input.value = oldKey;
     return;
   }
@@ -592,29 +601,29 @@ function locateIssue(issue: MenuIssue): void {
 function exportSelected(): void {
   if (!file.value || !doc.value) return;
   if (blockingIssues.value.length > 0) {
-    pushToast(`当前菜单存在 ${blockingIssues.value.length} 条错误/阻断项，已阻止导出`, 'error');
+    pushToast(tx('当前菜单存在 {count} 条错误/阻断项，已阻止导出', { count: blockingIssues.value.length }), 'error');
     showIssues.value = true;
     return;
   }
   const current = store.files[menuPath(selectedId.value!)]!;
   const prepared = prepareExport(current);
   if (!prepared.ok) {
-    pushToast(`导出被阻止：${prepared.issues[0]?.message ?? '自检失败'}`, 'error');
+    pushToast(tx('导出被阻止：{issue}', { issue: prepared.issues[0]?.message ?? tx('自检失败') }), 'error');
     return;
   }
   const filename = `${menuIdFromPath(current.path)}.yml`;
   downloadTextFile(filename, prepared.payload.text);
   store.markExported(current.path);
-  pushToast(`已导出 ${filename}；放回 plugins/MyCompany/menu/ 后可用 /mycompany reload`, 'success');
+  pushToast(tx('已导出 {file}；放回 plugins/MyCompany/menu/ 后可用 /mycompany reload', { file: filename }), 'success');
 }
 
 function exportAllZip(): void {
   if (menuFiles.value.length === 0) {
-    pushToast('没有可导出的菜单文件', 'error');
+    pushToast(tx('没有可导出的菜单文件'), 'error');
     return;
   }
   if (allBlockingIssues.value.length > 0) {
-    pushToast(`菜单文件存在 ${allBlockingIssues.value.length} 条错误/阻断项，已阻止打包导出`, 'error');
+    pushToast(tx('菜单文件存在 {count} 条错误/阻断项，已阻止打包导出', { count: allBlockingIssues.value.length }), 'error');
     showIssues.value = true;
     return;
   }
@@ -622,7 +631,7 @@ function exportAllZip(): void {
   for (const entry of menuFiles.value) {
     const prepared = prepareExport(entry);
     if (!prepared.ok) {
-      pushToast(`导出 ${entry.path} 失败：${prepared.issues[0]?.message ?? '自检失败'}`, 'error');
+      pushToast(tx('导出 {path} 失败：{issue}', { path: entry.path, issue: prepared.issues[0]?.message ?? tx('自检失败') }), 'error');
       return;
     }
     entries.push({ name: entry.path, text: prepared.payload.text });
@@ -631,8 +640,8 @@ function exportAllZip(): void {
   for (const entry of menuFiles.value) store.markExported(entry.path);
   const missing = MENU_META.map((entry) => entry.id).filter((id) => !presentIds.value.has(id));
   pushToast(
-    `已打包导出 ${entries.length} 个菜单文件到 mycompany-menu.zip` +
-      (missing.length ? `；缺少 ${missing.join(', ')}` : ''),
+    tx('已打包导出 {count} 个菜单文件到 mycompany-menu.zip', { count: entries.length }) +
+      (missing.length ? tx('；缺少 {ids}', { ids: missing.join(', ') }) : ''),
     missing.length ? 'warning' : 'success',
   );
 }
@@ -673,31 +682,26 @@ ensureSelection();
   <div class="menu-editor" data-testid="menu-editor">
     <header class="menu-header">
       <div>
-        <h1>菜单编辑器</h1>
-        <p class="menu-subtitle">
-          插件固定读取 <code>menu/&lt;id&gt;.yml</code> 的 18 个菜单；标题与物品文本在
-          <code>lang/&lt;language&gt;.yml</code>，不写进 menu 文件。修改后可 <code>/mycompany reload</code>。
+        <h1>{{ tx("菜单编辑器") }}</h1>
+        <p class="menu-subtitle"> {{ tx("插件固定读取") }} <code>menu/&lt;id&gt;.yml</code> {{ tx("的 18 个菜单；标题与物品文本在") }} <code>lang/&lt;language&gt;.yml</code>{{ tx("，不写进 menu 文件。修改后可") }} <code>/mycompany reload</code>.
         </p>
       </div>
       <div class="menu-header-actions">
-        <button class="mc-button" data-action="menu-import" @click="triggerImport">导入菜单文件</button>
+        <button class="mc-button" data-action="menu-import" @click="triggerImport">{{ tx("导入菜单文件") }}</button>
         <button
           class="mc-button primary"
           data-action="menu-export"
           :disabled="!file || !doc || blockingIssues.length > 0"
-          :title="blockingIssues.length ? `存在 ${blockingIssues.length} 条错误，导出被阻止` : '导出当前菜单'"
+          :title="blockingIssues.length ? tx('存在 {count} 条错误，导出被阻止', { count: blockingIssues.length }) : tx('导出当前菜单')"
           @click="exportSelected"
-        >
-          导出当前菜单
-        </button>
+        > {{ tx("导出当前菜单") }} </button>
         <button
           class="mc-button"
           data-action="menu-export-zip"
           :disabled="menuFiles.length === 0 || allBlockingIssues.length > 0"
-          :title="allBlockingIssues.length ? `存在 ${allBlockingIssues.length} 条错误，打包被阻止` : '打包导出全部菜单 ZIP'"
+          :title="allBlockingIssues.length ? tx('存在 {count} 条错误，打包被阻止', { count: allBlockingIssues.length }) : tx('打包导出全部菜单 ZIP')"
           @click="exportAllZip"
-        >
-          导出全部菜单 ZIP（{{ menuFiles.length }}/18）
+        > {{ tx("导出全部菜单 ZIP（") }}{{ menuFiles.length }}/18)
         </button>
         <input ref="importInput" type="file" accept=".yml,.yaml" multiple class="file-input" @change="onImport" />
       </div>
@@ -705,40 +709,35 @@ ensureSelection();
 
     <div class="menu-layout">
       <aside class="menu-files">
-        <h2>固定菜单（18）</h2>
+        <h2>{{ tx("固定菜单（18）") }}</h2>
         <div v-for="group in categoryGroups" :key="group.category" class="menu-category">
-          <h3>{{ group.category }}</h3>
+          <h3>{{ menuCategoryText(group.category) }}</h3>
           <button
             v-for="entry in group.items"
             :key="entry.id"
             class="menu-file-button"
             :class="{ active: selectedId === entry.id, missing: !presentIds.has(entry.id) }"
             :data-menu-id="entry.id"
-            @click="presentIds.has(entry.id) ? chooseMenu(entry.id) : pushToast(`请先导入 ${entry.id}.yml`, 'warning')"
+            @click="presentIds.has(entry.id) ? chooseMenu(entry.id) : pushToast(tx('请先导入 {id}.yml', { id: entry.id }), 'warning')"
           >
             <span class="menu-file-label">{{ entry.label }}</span>
             <code>{{ entry.id }}</code>
-            <span v-if="!presentIds.has(entry.id)" class="badge missing">未导入</span>
+            <span v-if="!presentIds.has(entry.id)" class="badge missing">{{ tx("未导入") }}</span>
             <span
               v-else-if="store.files[menuPath(entry.id)]?.issues.some(isBlockingIssue)"
               class="badge error"
-            >错误</span>
+            >{{ tx("错误") }}</span>
           </button>
         </div>
-        <p class="menu-hint">
-          未知菜单 id 会被跳过并提示“插件不会加载”；不能新建可加载菜单。
-        </p>
+        <p class="menu-hint"> {{ tx("未知菜单 id 会被跳过并提示“插件不会加载”；不能新建可加载菜单。") }} </p>
       </aside>
 
       <main class="menu-main">
         <div v-if="!file" class="menu-empty">
           <div class="menu-empty-icon" aria-hidden="true">🧰</div>
-          <h2>还没有菜单文件</h2>
-          <p>
-            导入服务器 <code>plugins/MyCompany/menu/*.yml</code>（可多选），或从示例项目载入 18 个固定菜单。
-            未知 id 不会被插件加载。
-          </p>
-          <button class="mc-button primary" data-action="menu-empty-import" @click="triggerImport">导入菜单文件</button>
+          <h2>{{ tx("还没有菜单文件") }}</h2>
+          <p> {{ tx("导入服务器") }} <code>plugins/MyCompany/menu/*.yml</code>{{ tx("（可多选），或从示例项目载入 18 个固定菜单。 未知 id 不会被插件加载。") }} </p>
+          <button class="mc-button primary" data-action="menu-empty-import" @click="triggerImport">{{ tx("导入菜单文件") }}</button>
         </div>
 
         <template v-else>
@@ -748,48 +747,44 @@ ensureSelection();
                 <code>{{ file.path }}</code>
                 <span class="menu-badge">{{ meta?.label ?? selectedId }}</span>
               </h2>
-              <p class="menu-hint">
-                标题/物品名/lore 来自 lang，不会写入此文件；0-based 槽位；default 自动填充空槽。
-              </p>
+              <p class="menu-hint"> {{ tx("标题/物品名/lore 来自 lang，不会写入此文件；0-based 槽位；default 自动填充空槽。") }} </p>
             </div>
             <div class="menu-title-actions">
-              <span v-if="blockingIssues.length" class="badge error">{{ blockingIssues.length }} 错误</span>
-              <span v-else-if="issues.length" class="badge warning">{{ issues.length }} 提示</span>
+              <span v-if="blockingIssues.length" class="badge error">{{ blockingIssues.length }} {{ tx("错误") }}</span>
+              <span v-else-if="issues.length" class="badge warning">{{ issues.length }} {{ tx("提示") }}</span>
               <button class="mc-button small" data-action="menu-toggle-issues" @click="showIssues = !showIssues">
-                {{ showIssues ? '收起问题' : '显示问题' }}
+                {{ showIssues ? tx('收起问题') : tx('显示问题') }}
               </button>
             </div>
           </div>
 
           <section class="menu-card menu-props">
-            <h3>菜单属性</h3>
+            <h3>{{ tx("菜单属性") }}</h3>
             <div class="menu-props-grid">
               <label class="field">
-                <span class="field-label">size（9 的倍数，9..54）</span>
+                <span class="field-label">{{ tx("size（9 的倍数，9..54）") }}</span>
                 <select class="mc-select" :value="model.sizeNumber ?? ''" data-field="menu-size" @change="setSizeValue">
-                  <option v-if="gridSizeInvalid" :value="model.sizeNumber ?? ''">
-                    非法：{{ model.size ?? '缺失' }}
+                  <option v-if="gridSizeInvalid" :value="model.sizeNumber ?? ''"> {{ tx("非法：") }}{{ model.size ?? '缺失' }}
                   </option>
-                  <option v-for="size in SIZE_OPTIONS" :key="size" :value="size">{{ size }}（{{ size / 9 }} 行）</option>
+                  <option v-for="size in SIZE_OPTIONS" :key="size" :value="size">{{ sizeOptionLabel(size) }}</option>
                 </select>
               </label>
               <div class="field">
-                <span class="field-label">分页与关键物品</span>
+                <span class="field-label">{{ tx("分页与关键物品") }}</span>
                 <div class="menu-hint">
                   <span v-if="pageOption">
-                    {{ pageOption.key }} = {{ Number.isNaN(pageOption.value) ? '非数字' : pageOption.value }}
-                    （默认 {{ pageOption.defaultValue }}）
+                    {{ pageOption.key }} = {{ Number.isNaN(pageOption.value) ? '非数字' : pageOption.value }} {{ tx("（默认") }} {{ pageOption.defaultValue }}）
                   </span>
-                  <span v-else>无分页参数</span>
-                  <span v-if="meta?.templates.length"> · 模板：{{ meta.templates.join(', ') }}</span>
+                  <span v-else>{{ tx("无分页参数") }}</span>
+                  <span v-if="meta?.templates.length"> {{ tx("· 模板：") }}{{ meta.templates.join(', ') }}</span>
                 </div>
               </div>
             </div>
 
-            <h3 class="menu-subheading">options（类型自动推断；未知键保留）</h3>
+            <h3 class="menu-subheading">{{ tx("options（类型自动推断；未知键保留）") }}</h3>
             <div class="options-table">
               <div class="options-head">
-                <span>key</span><span>value</span><span>推断类型</span><span />
+                <span>key</span><span>value</span><span>{{ tx("推断类型") }}</span><span />
               </div>
               <div v-for="option in model.options" :key="option.key" class="options-row">
                 <input
@@ -807,7 +802,7 @@ ensureSelection();
                 <span class="badge" :class="{ warning: option.inferred === 'other' }">
                   {{ option.inferred }}
                 </span>
-                <button class="mc-button tiny danger" type="button" @click="removeOption(option.key)">删除</button>
+                <button class="mc-button tiny danger" type="button" @click="removeOption(option.key)">{{ tx("删除") }}</button>
               </div>
             </div>
             <div class="options-add">
@@ -815,29 +810,25 @@ ensureSelection();
                 v-model="newOptionKey"
                 class="mc-input"
                 data-field="menu-option-new"
-                placeholder="新 option key"
+                :placeholder="tx('新 option key')"
               />
-              <button class="mc-button tiny" type="button" @click="addOption">+ 添加 option</button>
+              <button class="mc-button tiny" type="button" @click="addOption">{{ tx("+ 添加 option") }}</button>
               <button
                 v-if="meta?.pageOption && !pageOption?.option"
                 class="mc-button tiny"
                 type="button"
                 @click="addKnownPageOption"
-              >
-                + 补 {{ meta.pageOption.key }}
+              > {{ tx("+ 补") }} {{ meta.pageOption.key }}
               </button>
             </div>
-            <p class="menu-hint">
-              数字输出裸整数、true/false 输出布尔；显式空值会导致加载 NPE，列表/map 会静默失效。
-            </p>
+            <p class="menu-hint"> {{ tx("数字输出裸整数、true/false 输出布尔；显式空值会导致加载 NPE，列表/map 会静默失效。") }} </p>
           </section>
 
           <section class="menu-card chest-card">
             <div class="chest-titlebar">
               <span class="chest-title">🧰 {{ selectedId }}.yml</span>
               <span class="chest-subtitle">
-                {{ previewSize }} 槽 · {{ rows }} 行
-                <span v-if="gridSizeInvalid" class="badge error">size 非法，按 27 预览</span>
+                {{ previewSize }} {{ tx("槽 ·") }} {{ rows }} {{ tx("行") }} <span v-if="gridSizeInvalid" class="badge error">{{ tx("size 非法，按 27 预览") }}</span>
               </span>
             </div>
             <div class="chest-grid" :style="{ gridTemplateColumns: 'repeat(9, minmax(0, 1fr))' }">
@@ -855,7 +846,7 @@ ensureSelection();
                 :title="
                   cell.items.length
                     ? `#${cell.slot} · ${cell.items.map((item) => `${item.id} (${item.material})`).join(' / ')}`
-                    : `#${cell.slot} · 空${defaultFill ? ` · 填充 ${defaultItem?.material}` : ''}`
+                    : tx('＃{slot} · 空{fill}', { slot: cell.slot, fill: defaultFill ? tx(' · 填充 {material}', { material: defaultItem?.material ?? '' }) : '' })
                 "
                 draggable="false"
                 @click="onSlotClick(cell.slot)"
@@ -883,33 +874,30 @@ ensureSelection();
               </button>
             </div>
             <div class="chest-legend">
-              <span><i class="legend-dot occupied" /> 已占用</span>
-              <span><i class="legend-dot default" /> default 填充</span>
-              <span><i class="legend-dot conflict" /> 槽位冲突</span>
-              <span>点击槽位分配当前物品；拖拽移动；Shift/Ctrl 拖拽复制。</span>
+              <span><i class="legend-dot occupied" /> {{ tx("已占用") }}</span>
+              <span><i class="legend-dot default" /> {{ tx("default 填充") }}</span>
+              <span><i class="legend-dot conflict" /> {{ tx("槽位冲突") }}</span>
+              <span>{{ tx("点击槽位分配当前物品；拖拽移动；Shift/Ctrl 拖拽复制。") }}</span>
             </div>
           </section>
 
           <section v-if="showIssues" class="menu-card">
-            <h3>校验问题（{{ issues.length }}）</h3>
-            <p v-if="issues.length === 0" class="menu-hint">没有发现问题。</p>
+            <h3>{{ tx("校验问题（") }}{{ issues.length }})</h3>
+            <p v-if="issues.length === 0" class="menu-hint">{{ tx("没有发现问题。") }}</p>
             <ul v-else class="menu-issues">
               <li v-for="(issue, index) in issues" :key="index" :class="issue.severity">
                 <code>{{ issue.code }}</code>
                 {{ issue.message }}
-                <button v-if="issue.itemId || issue.slot !== undefined" class="mc-button tiny" @click="locateIssue(issue)">
-                  定位
-                </button>
+                <p v-if="issue.fixHint" class="issue-fix">{{ issue.fixHint }}</p>
+                <button v-if="issue.itemId || issue.slot !== undefined" class="mc-button tiny" @click="locateIssue(issue)"> {{ tx("定位") }} </button>
               </li>
             </ul>
           </section>
 
           <details class="menu-card yaml-preview" data-testid="menu-yaml-preview">
-            <summary>只读 YAML 预览（导出前核对）</summary>
+            <summary>{{ tx("只读 YAML 预览（导出前核对）") }}</summary>
             <pre class="yaml-preview-text">{{ yamlPreview }}</pre>
-            <p class="menu-hint">
-              此预览由 serializeMenu 实时生成；只读，不会写入文件。导出还会执行 parse→dump→re-parse 自检。
-            </p>
+            <p class="menu-hint"> {{ tx("此预览由 serializeMenu 实时生成；只读，不会写入文件。导出还会执行 parse→dump→re-parse 自检。") }} </p>
           </details>
 
           <LanguagePanel
@@ -922,22 +910,22 @@ ensureSelection();
 
       <aside class="menu-items">
         <template v-if="file">
-          <h2>物品（{{ model.items.length }}）</h2>
+          <h2>{{ tx("物品（") }}{{ model.items.length }})</h2>
           <input
             v-model="search"
             class="mc-input"
             data-field="menu-item-search"
-            placeholder="搜索 id / material"
+            :placeholder="tx('搜索 id / material')"
           />
           <div class="item-add-row">
             <input
               v-model="newItemId"
               class="mc-input"
               data-field="menu-new-item-id"
-              placeholder="新物品 id"
+              :placeholder="tx('新物品 id')"
               @keydown.enter="addNewItem"
             />
-            <button class="mc-button tiny primary" data-action="menu-add-item" @click="addNewItem">新增</button>
+            <button class="mc-button tiny primary" data-action="menu-add-item" @click="addNewItem">{{ tx("新增") }}</button>
           </div>
           <div class="item-list">
             <button
@@ -954,21 +942,21 @@ ensureSelection();
               <span class="item-meta">
                 <span class="item-id">{{ item.id }}</span>
                 <span class="item-material">
-                  {{ item.material || '（缺 material）' }}
-                  <span v-if="isCustomMaterialItem(item.id)" class="badge">自定义材质</span>
+                  {{ item.material || tx('（缺 material）') }}
+                  <span v-if="isCustomMaterialItem(item.id)" class="badge">{{ tx("自定义材质") }}</span>
                 </span>
                 <span class="item-slot">
                   {{
                     item.id === 'default'
-                      ? '填充空槽'
+                      ? tx('填充空槽')
                       : itemSlots(item).length
-                        ? `槽位 ${itemSlots(item).join(', ')}`
-                        : '无槽位'
+                        ? tx('槽位 {slots}', { slots: itemSlots(item).join(', ') })
+                        : tx('无槽位')
                   }}
                 </span>
               </span>
             </button>
-            <p v-if="filteredItems.length === 0" class="menu-hint">没有匹配的物品。</p>
+            <p v-if="filteredItems.length === 0" class="menu-hint">{{ tx("没有匹配的物品。") }}</p>
           </div>
 
           <section v-if="selectedItem" class="menu-card item-editor">
@@ -977,12 +965,12 @@ ensureSelection();
               <div class="item-editor-actions">
                 <button class="mc-button tiny" data-action="menu-item-up" @click="moveSelectedItem(-1)">↑</button>
                 <button class="mc-button tiny" data-action="menu-item-down" @click="moveSelectedItem(1)">↓</button>
-                <button class="mc-button tiny" data-action="menu-item-copy" @click="duplicateSelectedItem">复制</button>
-                <button class="mc-button tiny danger" data-action="menu-item-delete" @click="removeSelectedItem">删除</button>
+                <button class="mc-button tiny" data-action="menu-item-copy" @click="duplicateSelectedItem">{{ tx("复制") }}</button>
+                <button class="mc-button tiny danger" data-action="menu-item-delete" @click="removeSelectedItem">{{ tx("删除") }}</button>
               </div>
             </div>
             <label class="field">
-              <span class="field-label">物品 id（map key）</span>
+              <span class="field-label">{{ tx("物品 id（map key）") }}</span>
               <input
                 class="mc-input"
                 :value="selectedItem.id"
@@ -1008,9 +996,7 @@ ensureSelection();
               <span
                 v-else-if="selectedId === 'main' && usesUppercasePlayerPlaceholder(selectedItem.material)"
                 class="inline-warning"
-              >
-                主菜单是静态菜单，只替换 %player%；%PLAYER% 会变成字面 owner。
-              </span>
+              > {{ tx("主菜单是静态菜单，只替换 %player%；%PLAYER% 会变成字面 owner。") }} </span>
             </div>
             <div class="material-presets">
               <button
@@ -1025,21 +1011,12 @@ ensureSelection();
             </div>
 
             <div v-if="selectedItem.id !== 'default'" class="field">
-              <span class="field-label">槽位（slot / slots）</span>
-              <p class="menu-hint">
-                当前：{{ itemSlotMode(selectedItem) === 'none' ? '无槽位' : itemSlots(selectedItem).join(', ') }}
-                · 点击网格槽位分配；Shift/Ctrl 点击可多选。
-              </p>
+              <span class="field-label">{{ tx("槽位（slot / slots）") }}</span>
+              <p class="menu-hint"> {{ tx("当前：") }}{{ itemSlotMode(selectedItem) === 'none' ? '无槽位' : itemSlots(selectedItem).join(', ') }} {{ tx("· 点击网格槽位分配；Shift/Ctrl 点击可多选。") }} </p>
               <div class="slot-actions">
-                <button class="mc-button tiny" type="button" data-action="menu-make-single" @click="makeSingleSlot">
-                  设为单槽
-                </button>
-                <button class="mc-button tiny" type="button" data-action="menu-make-multi" @click="makeMultiSlot">
-                  设为多槽
-                </button>
-                <button class="mc-button tiny" type="button" data-action="menu-clear-slots" @click="clearSlots">
-                  清空槽位
-                </button>
+                <button class="mc-button tiny" type="button" data-action="menu-make-single" @click="makeSingleSlot"> {{ tx("设为单槽") }} </button>
+                <button class="mc-button tiny" type="button" data-action="menu-make-multi" @click="makeMultiSlot"> {{ tx("设为多槽") }} </button>
+                <button class="mc-button tiny" type="button" data-action="menu-clear-slots" @click="clearSlots"> {{ tx("清空槽位") }} </button>
               </div>
               <div v-if="itemSlotMode(selectedItem) === 'slot'" class="slot-single-row">
                 <input
@@ -1055,7 +1032,7 @@ ensureSelection();
               <div v-else-if="itemSlotMode(selectedItem) === 'slots'" class="slot-chips">
                 <span v-for="slot in itemSlots(selectedItem)" :key="slot" class="slot-chip">
                   {{ slot }}
-                  <button type="button" aria-label="移除槽位" @click="removeSlot(slot)">×</button>
+                  <button type="button" :aria-label="tx('移除槽位')" @click="removeSlot(slot)">×</button>
                 </span>
                 <div class="slot-add-row">
                   <input
@@ -1063,26 +1040,22 @@ ensureSelection();
                     type="number"
                     min="0"
                     :max="previewSize - 1"
-                    placeholder="槽位号"
+                    :placeholder="tx('槽位号')"
                     data-field="menu-slot-add"
                     @keydown.enter="addSlotNumber"
                   />
-                  <button class="mc-button tiny" type="button" data-action="menu-slot-add" @click="addSlotNumber">
-                    + 槽位
-                  </button>
+                  <button class="mc-button tiny" type="button" data-action="menu-slot-add" @click="addSlotNumber"> {{ tx("+ 槽位") }} </button>
                 </div>
               </div>
             </div>
 
-            <p v-if="selectedItem.id === 'default'" class="menu-hint">
-              default 物品自动填充所有空槽，不参与具体槽位；它的 material 无效时等价无填充。
-            </p>
+            <p v-if="selectedItem.id === 'default'" class="menu-hint"> {{ tx("default 物品自动填充所有空槽，不参与具体槽位；它的 material 无效时等价无填充。") }} </p>
 
             <details v-if="selectedItem.extras.length" class="menu-extras">
-              <summary>未知字段 {{ selectedItem.extras.length }} 个（原样保留）</summary>
+              <summary>{{ tx("未知字段") }} {{ selectedItem.extras.length }} {{ tx("个（原样保留）") }}</summary>
               <ul>
                 <li v-for="extra in selectedItem.extras" :key="extra.key">
-                  <code>{{ extra.key }}</code>：{{ extra.preview }}
+                  <code>{{ extra.key }}</code>: {{ extra.preview }}
                 </li>
               </ul>
             </details>

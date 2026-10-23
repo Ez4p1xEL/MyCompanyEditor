@@ -1,3 +1,5 @@
+import { t } from '../../i18n';
+
 /** 项目 ZIP：读写均使用 store（无压缩）导出；导入兼容 store 与 deflate。 */
 
 const CRC_TABLE = (() => {
@@ -121,7 +123,7 @@ function findEndOfCentralDirectory(data: Uint8Array): number {
 
 async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
   if (typeof DecompressionStream === 'undefined') {
-    throw new Error('当前浏览器不支持解压 deflate ZIP，请改用未压缩 ZIP 或单独导入 YAML');
+    throw new Error(t('shell.project.noDeflate'));
   }
   const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
   const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
@@ -132,7 +134,7 @@ async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
 /** 读取 ZIP 内所有 UTF-8 文本条目（跳过目录）。 */
 export async function readZip(data: Uint8Array): Promise<ZipTextEntry[]> {
   const eocd = findEndOfCentralDirectory(data);
-  if (eocd < 0) throw new Error('不是有效的 ZIP（找不到中央目录）');
+  if (eocd < 0) throw new Error(t('shell.project.invalidZip'));
   const dv = view(data);
   const count = dv.getUint16(eocd + 10, true);
   const centralOffset = dv.getUint32(eocd + 16, true);
@@ -140,7 +142,7 @@ export async function readZip(data: Uint8Array): Promise<ZipTextEntry[]> {
   let offset = centralOffset;
   for (let index = 0; index < count; index += 1) {
     if (offset + 46 > data.length || dv.getUint32(offset, true) !== 0x02014b50) {
-      throw new Error('ZIP 中央目录损坏');
+      throw new Error(t('shell.project.corruptZip'));
     }
     const method = dv.getUint16(offset + 10, true);
     const compressedSize = dv.getUint32(offset + 20, true);
@@ -152,7 +154,7 @@ export async function readZip(data: Uint8Array): Promise<ZipTextEntry[]> {
     offset += 46 + nameLength + extraLength + commentLength;
     if (name.endsWith('/')) continue;
     if (localOffset + 30 > data.length || dv.getUint32(localOffset, true) !== 0x04034b50) {
-      throw new Error(`ZIP 条目 ${name} 的本地头损坏`);
+      throw new Error(t('shell.project.corruptEntry', { name }));
     }
     const localNameLength = dv.getUint16(localOffset + 26, true);
     const localExtraLength = dv.getUint16(localOffset + 28, true);
@@ -161,7 +163,7 @@ export async function readZip(data: Uint8Array): Promise<ZipTextEntry[]> {
     let content: Uint8Array;
     if (method === 0) content = compressed;
     else if (method === 8) content = await inflateRaw(compressed);
-    else throw new Error(`ZIP 条目 ${name} 使用了不支持的压缩方式 ${method}`);
+    else throw new Error(t('shell.project.unsupportedCompression', { name, method }));
     entries.push({ name, text: decoder.decode(content) });
   }
   return entries;

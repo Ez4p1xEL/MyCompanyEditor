@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { useToasts, dismissToast } from '../core/toast';
+import { useI18n } from '../i18n';
 
 const toasts = useToasts();
+const { t } = useI18n();
 </script>
 
 <template>
@@ -14,7 +16,7 @@ const toasts = useToasts();
       role="status"
     >
       <span class="toast-message">{{ toast.message }}</span>
-      <button class="toast-close" aria-label="关闭提示" @click="dismissToast(toast.id)">×</button>
+      <button class="toast-close" :aria-label="t('shell.toast.close')" @click="dismissToast(toast.id)">×</button>
     </div>
   </div>
 </template>

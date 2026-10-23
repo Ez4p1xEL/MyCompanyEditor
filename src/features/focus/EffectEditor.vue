@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { focusText as tx } from './focusConstants';
 import { computed } from 'vue';
 import type { EffectGroupModel, EffectModel } from './focusDoc';
 import {
@@ -96,9 +97,7 @@ const totalGroups = computed(() => props.model.drops.length + props.model.damage
 
 <template>
   <div class="effect-editor" data-editor="effect">
-    <p v-if="model.kind !== 'map' && model.kind !== 'missing'" class="inline-warning">
-      effect 当前是 {{ model.kind }}，不是映射；编辑会重建为映射（原值会丢失）。
-    </p>
+    <p v-if="model.kind !== 'map' && model.kind !== 'missing'" class="inline-warning"> {{ tx("effect 当前是") }} {{ model.kind }}{{ tx("，不是映射；编辑会重建为映射（原值会丢失）。") }} </p>
 
     <section v-for="meta in EFFECT_TYPES" :key="meta.value" class="effect-type">
       <div class="effect-type-head">
@@ -109,9 +108,7 @@ const totalGroups = computed(() => props.model.drops.length + props.model.damage
           type="button"
           :data-action="`effect-add-group-${meta.value}`"
           @click="addGroup(meta.value)"
-        >
-          + 添加实体组
-        </button>
+        > {{ tx("+ 添加实体组") }} </button>
       </div>
 
       <div
@@ -122,7 +119,7 @@ const totalGroups = computed(() => props.model.drops.length + props.model.damage
       >
         <div class="effect-group-head">
           <label class="field compact">
-            <span class="field-label">实体（ALL 或 EntityType）</span>
+            <span class="field-label">{{ tx("实体（ALL 或 EntityType）") }}</span>
             <input
               class="mc-input"
               :list="meta.kind === 'drops' ? dropEntityListId : damageEntityListId"
@@ -131,16 +128,10 @@ const totalGroups = computed(() => props.model.drops.length + props.model.damage
               @change="renameGroup(meta.value, group, $event)"
             />
           </label>
-          <button class="mc-button tiny danger" type="button" @click="deleteGroup(meta.value, group)">
-            删除此组
-          </button>
+          <button class="mc-button tiny danger" type="button" @click="deleteGroup(meta.value, group)"> {{ tx("删除此组") }} </button>
         </div>
-        <p v-if="group.valueKind !== 'seq'" class="inline-warning">
-          该实体值不是列表（{{ group.valueKind }}），原样保留；修正为列表后才能编辑。
-        </p>
-        <p v-else-if="group.rows.some((row) => !row.isString)" class="inline-warning">
-          组内含非字符串行，已原样保留；编辑前请先在 YAML 中修正。
-        </p>
+        <p v-if="group.valueKind !== 'seq'" class="inline-warning"> {{ tx("该实体值不是列表（") }}{{ group.valueKind }}{{ tx("），原样保留；修正为列表后才能编辑。") }} </p>
+        <p v-else-if="group.rows.some((row) => !row.isString)" class="inline-warning"> {{ tx("组内含非字符串行，已原样保留；编辑前请先在 YAML 中修正。") }} </p>
 
         <template v-if="group.valueKind === 'seq'">
           <div class="effect-rows">
@@ -151,7 +142,7 @@ const totalGroups = computed(() => props.model.drops.length + props.model.damage
                   :list="materialListId"
                   :value="parseDropRow(row.raw).item"
                   :data-effect-field="`${meta.value}-item-${index}`"
-                  placeholder="ITEM 或 ALL"
+                  :placeholder="tx('ITEM 或 ALL')"
                   @change="updateDrop(meta.value, group, index, { item: ($event.target as HTMLInputElement).value.trim().toUpperCase() })"
                 />
                 <select
@@ -160,8 +151,8 @@ const totalGroups = computed(() => props.model.drops.length + props.model.damage
                   :data-effect-field="`${meta.value}-sign-${index}`"
                   @change="updateDrop(meta.value, group, index, { sign: ($event.target as HTMLSelectElement).value as '+' | '*' })"
                 >
-                  <option value="+">+ 加</option>
-                  <option value="*">* 乘</option>
+                  <option value="+">{{ tx("+ 加") }}</option>
+                  <option value="*">{{ tx("* 乘") }}</option>
                 </select>
                 <input
                   class="mc-input number-input"
@@ -186,7 +177,7 @@ const totalGroups = computed(() => props.model.drops.length + props.model.damage
                   inputmode="decimal"
                   :value="parseDamageRow(row.raw).multiplier"
                   :data-effect-field="`${meta.value}-multiplier-${index}`"
-                  placeholder="倍率 >0"
+                  :placeholder="tx('倍率 >0')"
                   @input="updateDamage(meta.value, group, index, { multiplier: ($event.target as HTMLInputElement).value })"
                 />
                 <input
@@ -199,26 +190,22 @@ const totalGroups = computed(() => props.model.drops.length + props.model.damage
                 />
               </template>
               <code class="row-raw">{{ row.raw }}</code>
-              <button class="mc-button tiny" type="button" @click="removeRow(meta.value, group, index)">
-                删除
-              </button>
+              <button class="mc-button tiny" type="button" @click="removeRow(meta.value, group, index)"> {{ tx("删除") }} </button>
             </div>
           </div>
-          <button class="mc-button tiny" type="button" :data-action="`effect-add-row-${meta.value}`" @click="addRow(meta.value, group)">
-            + 添加参数行
-          </button>
+          <button class="mc-button tiny" type="button" :data-action="`effect-add-row-${meta.value}`" @click="addRow(meta.value, group)"> {{ tx("+ 添加参数行") }} </button>
         </template>
       </div>
-      <p v-if="groups(meta.value).length === 0" class="muted">尚未配置此效果。</p>
+      <p v-if="groups(meta.value).length === 0" class="muted">{{ tx("尚未配置此效果。") }}</p>
     </section>
 
-    <p v-if="totalGroups === 0" class="muted">无效果；可添加实体组（ALL 或具体 EntityType）。</p>
+    <p v-if="totalGroups === 0" class="muted">{{ tx("无效果；可添加实体组（ALL 或具体 EntityType）。") }}</p>
 
     <details v-if="model.unknown.length" class="extras">
-      <summary>未识别/大小写错误 effect 键 {{ model.unknown.length }} 个（原样保留，插件跳过）</summary>
+      <summary>{{ tx("未识别/大小写错误 effect 键") }} {{ model.unknown.length }} {{ tx("个（原样保留，插件跳过）") }}</summary>
       <ul>
         <li v-for="extra in model.unknown" :key="extra.key">
-          <code>{{ extra.key }}</code>：{{ extra.preview }}
+          <code>{{ extra.key }}</code>: {{ extra.preview }}
         </li>
       </ul>
     </details>

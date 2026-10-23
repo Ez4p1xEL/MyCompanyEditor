@@ -13,10 +13,27 @@ import {
 import { downloadTextFile } from '../core/download';
 import { pushToast } from '../core/toast';
 import { formatBytes } from '../core/format';
-import { fileKindLabel } from '../core/fileTypes';
+import { useI18n } from '../i18n';
 import type { ValidationIssue } from '../core/types';
 
 const store = useProjectStore();
+const { t, locale } = useI18n();
+
+function paren(text: string): string {
+  return locale.value === 'en' ? ` (${text})` : `（${text}）`;
+}
+
+function kindLabel(kind: string): string {
+  const known: Record<string, string> = {
+    orders: t('shell.kind.orders'),
+    focus: t('shell.kind.focus'),
+    menu: t('shell.kind.menu'),
+    'focus-tree': t('shell.kind.focusTree'),
+    'menus-config': t('shell.kind.menusConfig'),
+    unknown: t('shell.kind.unknown'),
+  };
+  return known[kind] ?? kind;
+}
 const targetPath = ref('');
 const filename = ref('');
 const filenameError = ref<string | null>(null);
@@ -84,7 +101,7 @@ function close(): void {
 function locateFile(file: string): void {
   store.setActive(file);
   close();
-  pushToast(`已选中 ${file}，可在项目总览查看校验问题`, 'info');
+  pushToast(t('shell.export.locating', { file }), 'info');
   window.setTimeout(() => {
     document.querySelector<HTMLElement>('[data-nav="project"]')?.click();
   }, 0);
@@ -92,86 +109,86 @@ function locateFile(file: string): void {
 
 function confirmExport(): void {
   if (projectBlockers.value.length > 0) {
-    pushToast(`存在 ${projectBlockers.value.length} 条错误/阻断项，已禁止导出`, 'error');
+    pushToast(t('shell.export.blockedCount', { count: projectBlockers.value.length }), 'error');
     return;
   }
   const file = targetFile.value;
   if (!file) {
-    pushToast('没有可导出的文件', 'warning');
+    pushToast(t('shell.export.noFiles'), 'warning');
     return;
   }
   const trimmed = filename.value.trim();
   const nameError = validateExportFilename(trimmed);
   if (nameError) {
-    filenameError.value = nameError;
+    filenameError.value = locale.value === 'zh-CN' ? nameError : t('shell.export.invalidFilename');
     return;
   }
   const result = prepareExport(file);
   if (!result.ok) {
     selfCheckIssues.value = result.issues;
-    pushToast('导出被阻止：当前文件无法通过导出前自检', 'error');
+    pushToast(t('shell.export.selfCheckBlocked'), 'error');
     return;
   }
   downloadTextFile(trimmed, result.payload.text);
   store.markExported(file.path);
-  pushToast(`已导出 ${trimmed}（${formatBytes(result.payload.bytes)}）`, 'success');
+  pushToast(t('shell.export.exported', { name: trimmed, size: formatBytes(result.payload.bytes) }), 'success');
   closeExportDialog();
 }
 
 function exportAll(): void {
   if (projectBlockers.value.length > 0) {
-    pushToast(`存在 ${projectBlockers.value.length} 条错误/阻断项，已禁止全部导出`, 'error');
+    pushToast(t('shell.export.blockedAllCount', { count: projectBlockers.value.length }), 'error');
     return;
   }
   const result = prepareAllExports(store.fileList);
   if (!result.ok) {
     selfCheckIssues.value = result.issues;
-    pushToast('全部导出被阻止：存在无法通过自检的文件', 'error');
+    pushToast(t('shell.export.allSelfCheckBlocked'), 'error');
     return;
   }
   for (const payload of result.payloads) {
     downloadTextFile(payload.filename, payload.text);
   }
   store.markExported();
-  pushToast(`已导出全部 ${result.payloads.length} 个文件（逐个下载，警告/提示不阻断）`, 'success');
+  pushToast(t('shell.export.allExported', { count: result.payloads.length }), 'success');
   closeExportDialog();
 }
 </script>
 
 <template>
   <div v-if="exportDialogState.open" class="modal-overlay" @click.self="close">
-    <section class="modal export-dialog" role="dialog" aria-modal="true" aria-label="导出文件">
+    <section class="modal export-dialog" role="dialog" aria-modal="true" :aria-label="t('shell.export.aria')">
       <header class="modal-header">
-        <h2>导出 YAML 文件</h2>
-        <button class="modal-close" aria-label="关闭" @click="close">×</button>
+        <h2>{{ t('shell.export.title') }}</h2>
+        <button class="modal-close" :aria-label="t('shell.export.close')" @click="close">×</button>
       </header>
 
       <div class="modal-body">
         <label class="field">
-          <span class="field-label">选择文件</span>
+          <span class="field-label">{{ t('shell.export.selectFile') }}</span>
           <select v-model="targetPath" class="mc-select">
             <option v-for="file in store.fileList" :key="file.path" :value="file.path">
-              {{ file.path }}（{{ fileKindLabel(file.kind) }}）
+              {{ file.path }}{{ paren(kindLabel(file.kind)) }}
             </option>
           </select>
         </label>
 
         <label class="field">
-          <span class="field-label">保存文件名</span>
+          <span class="field-label">{{ t('shell.export.filename') }}</span>
           <input v-model="filename" class="mc-input" spellcheck="false" />
           <span v-if="filenameError" class="field-error">{{ filenameError }}</span>
         </label>
 
         <div v-if="targetFile" class="export-meta">
-          <span>共 {{ targetFile.stats.lineCount }} 行</span>
+          <span>{{ t('shell.export.lines', { count: targetFile.stats.lineCount }) }}</span>
           <span>{{ formatBytes(targetFile.stats.byteSize) }}</span>
-          <span>导出后大小约 {{ preparation?.ok ? formatBytes(preparation.payload.bytes) : '—' }}</span>
-          <span v-if="fileIssueCount > 0" class="warn-text">本文件有 {{ fileIssueCount }} 条错误/警告</span>
+          <span>{{ t('shell.export.estimatedSize', { size: preparation?.ok ? formatBytes(preparation.payload.bytes) : '—' }) }}</span>
+          <span v-if="fileIssueCount > 0" class="warn-text">{{ t('shell.export.fileIssueCount', { count: fileIssueCount }) }}</span>
         </div>
 
         <div v-if="blockerGroups.length > 0" class="export-blocked" data-testid="export-blockers">
           <p class="export-blocked-title">
-            已阻止导出：全项目存在 {{ projectBlockers.length }} 条错误/阻断项
+            {{ t('shell.export.blockedTitle', { count: projectBlockers.length }) }}
           </p>
           <div v-for="group in blockerGroups" :key="group.file" class="blocker-group">
             <div class="blocker-file">
@@ -182,7 +199,7 @@ function exportAll(): void {
                 data-action="locate-blocker-file"
                 @click="locateFile(group.file)"
               >
-                定位此文件
+                {{ t('shell.export.locateFile') }}
               </button>
             </div>
             <ul>
@@ -190,49 +207,49 @@ function exportAll(): void {
                 <code v-if="issue.code" class="blocker-code">{{ issue.code }}</code>
                 {{ issue.message }}
                 <span v-if="issue.path" class="blocker-path">· {{ issue.path }}</span>
-                <span v-if="issue.line" class="blocker-path">· 第 {{ issue.line }} 行</span>
+                <span v-if="issue.line" class="blocker-path">· {{ t('shell.issue.line', { line: issue.line }) }}</span>
               </li>
             </ul>
           </div>
           <p class="muted">
-            修正全部错误/阻断项后才能导出；纯警告/提示不会阻止导出。
+            {{ t('shell.export.blockersFixHint') }}
           </p>
         </div>
 
         <div v-if="selfCheckIssues.length > 0" class="export-blocked" data-testid="export-self-check">
-          <p class="export-blocked-title">导出前自检失败：</p>
+          <p class="export-blocked-title">{{ t('shell.export.selfCheckTitle') }}</p>
           <ul>
             <li v-for="issue in selfCheckIssues" :key="`${issue.code}-${issue.line}`">
-              {{ issue.message }}<template v-if="issue.line">（第 {{ issue.line }} 行）</template>
+              {{ issue.message }}<template v-if="issue.line">{{ paren(t('shell.issue.line', { line: issue.line })) }}</template>
             </li>
           </ul>
         </div>
 
         <div v-if="preparation?.ok" class="export-preview">
-          <p class="field-label">预览（前 14 行）</p>
+          <p class="field-label">{{ t('shell.export.preview') }}</p>
           <pre>{{ preview }}</pre>
         </div>
       </div>
 
       <footer class="modal-footer">
-        <button class="mc-button" @click="close">取消</button>
+        <button class="mc-button" @click="close">{{ t('shell.export.cancel') }}</button>
         <button
           class="mc-button"
           data-action="export-all"
           :disabled="!canExportAll"
-          :title="canExportAll ? '逐个下载项目全部文件' : '存在错误/阻断项或没有文件'"
+          :title="canExportAll ? t('shell.export.exportAllTitle') : t('shell.export.exportAllDisabled')"
           @click="exportAll"
         >
-          导出全部（{{ store.fileList.length }} 个）
+          {{ t('shell.export.exportAll', { count: store.fileList.length }) }}
         </button>
         <button
           class="mc-button primary"
           data-action="confirm-export"
           :disabled="!canDownload"
-          :title="canDownload ? '下载当前文件' : '存在错误/阻断项，禁止导出'"
+          :title="canDownload ? t('shell.export.downloadTitle') : t('shell.export.downloadDisabled')"
           @click="confirmExport"
         >
-          下载 .yml
+          {{ t('shell.export.download') }}
         </button>
       </footer>
     </section>

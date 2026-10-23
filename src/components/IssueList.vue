@@ -1,19 +1,26 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { ValidationIssue } from '../core/types';
-import { severityLabel } from '../core/format';
+import { useI18n } from '../i18n';
 
-withDefaults(
-  defineProps<{
-    issues: ValidationIssue[];
-    emptyText?: string;
-  }>(),
-  { emptyText: '没有发现问题' },
-);
+const props = defineProps<{
+  issues: ValidationIssue[];
+  emptyText?: string;
+}>();
+
+const { t } = useI18n();
+const displayEmpty = computed(() => props.emptyText ?? t('shell.issue.empty'));
+
+function severityText(severity: ValidationIssue['severity']): string {
+  if (severity === 'error') return t('shell.issue.severityError');
+  if (severity === 'warning') return t('shell.issue.severityWarning');
+  return t('shell.issue.severityInfo');
+}
 </script>
 
 <template>
   <div class="issue-list">
-    <p v-if="issues.length === 0" class="issue-empty">{{ emptyText }}</p>
+    <p v-if="issues.length === 0" class="issue-empty">{{ displayEmpty }}</p>
     <ul v-else>
       <li
         v-for="(issue, index) in issues"
@@ -21,16 +28,18 @@ withDefaults(
         class="issue-item"
         :class="`issue-${issue.severity}`"
       >
-        <span class="issue-severity">{{ severityLabel(issue.severity) }}</span>
+        <span class="issue-severity">{{ severityText(issue.severity) }}</span>
         <div class="issue-body">
           <p class="issue-message">{{ issue.message }}</p>
           <p class="issue-meta">
             <code v-if="issue.code">{{ issue.code }}</code>
-            <span>{{ issue.file || '（项目）' }}</span>
+            <span>{{ issue.file || t('shell.issue.project') }}</span>
             <span v-if="issue.path">· {{ issue.path }}</span>
-            <span v-if="issue.line">· 第 {{ issue.line }} 行<template v-if="issue.column">，第 {{ issue.column }} 列</template></span>
+            <span v-if="issue.line">
+              · <template v-if="issue.column">{{ t('shell.issue.lineColumn', { line: issue.line, column: issue.column }) }}</template><template v-else>{{ t('shell.issue.line', { line: issue.line }) }}</template>
+            </span>
           </p>
-          <p v-if="issue.fixHint" class="issue-fix">修复建议：{{ issue.fixHint }}</p>
+          <p v-if="issue.fixHint" class="issue-fix">{{ t('shell.issue.fix', { hint: issue.fixHint }) }}</p>
         </div>
       </li>
     </ul>

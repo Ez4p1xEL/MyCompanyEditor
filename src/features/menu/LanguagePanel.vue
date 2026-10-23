@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { menuText as tx } from './menuConstants';
 import { computed, reactive, ref, watch } from 'vue';
 import { Document } from 'yaml';
 import { downloadTextFile } from '../../core/download';
@@ -68,7 +69,7 @@ function exportSnippet(): void {
     .map((line) => line.trimEnd())
     .filter((line) => line.length > 0);
   if (!title && !displayName && lore.length === 0) {
-    pushToast('当前语言片段为空：请先填写标题、display_name 或 lore', 'warning');
+    pushToast(tx('当前语言片段为空：请先填写标题、display_name 或 lore'), 'warning');
     return;
   }
   const plain: Record<string, unknown> = { menu: { [props.menuId]: {} } };
@@ -87,7 +88,7 @@ function exportSnippet(): void {
   const text = stringifyYamlDocument(doc);
   downloadTextFile(`menu-${props.menuId}-lang-snippet.yml`, text);
   pushToast(
-    `已导出语言片段 menu-${props.menuId}-lang-snippet.yml；请手动合并到 lang/<language>.yml，不会写入 menu/*.yml`,
+    tx('已导出语言片段 menu-{menuId}-lang-snippet.yml；请手动合并到 lang/<language>.yml，不会写入 menu/*.yml', { menuId: props.menuId }),
     'success',
   );
 }
@@ -95,27 +96,23 @@ function exportSnippet(): void {
 
 <template>
   <section class="menu-card lang-panel">
-    <h3>语言片段（lang 文件）</h3>
-    <p class="menu-hint">
-      菜单标题、物品 display_name 与 lore <strong>不写入 menu/*.yml</strong>；插件从
-      <code>lang/&lt;language&gt;.yml</code> 读取。这里编辑的文本只存在浏览器内，并可导出为独立片段，
-      不会改动 menu 文件。
-    </p>
+    <h3>{{ tx("语言片段（lang 文件）") }}</h3>
+    <p class="menu-hint"> {{ tx("菜单标题、物品 display_name 与 lore") }} <strong>{{ tx("不写入 menu/*.yml") }}</strong>{{ tx("；插件从") }} <code>lang/&lt;language&gt;.yml</code> {{ tx("读取。这里编辑的文本只存在浏览器内，并可导出为独立片段， 不会改动 menu 文件。") }} </p>
     <div class="lang-target">
       <label class="field">
-        <span class="field-label">菜单标题键</span>
+        <span class="field-label">{{ tx("菜单标题键") }}</span>
         <code>menu.{{ menuId }}.title</code>
       </label>
       <input
         v-model="titleEntry.title"
         class="mc-input"
         data-field="lang-title"
-        placeholder="菜单标题（支持 & 颜色码）"
+        :placeholder="tx('菜单标题（支持 & 颜色码）')"
       />
     </div>
     <div class="lang-target">
       <label class="field">
-        <span class="field-label">目标物品（文本键）</span>
+        <span class="field-label">{{ tx("目标物品（文本键）") }}</span>
         <select v-model="activeItem" class="mc-select" data-field="lang-item">
           <option v-for="id in items" :key="id" :value="id">{{ id }}</option>
         </select>
@@ -128,24 +125,22 @@ function exportSnippet(): void {
         v-model="itemEntry.displayName"
         class="mc-input"
         data-field="lang-display-name"
-        placeholder="物品显示名"
+        :placeholder="tx('物品显示名')"
       />
     </label>
     <label class="field">
-      <span class="field-label">lore（每行一条）</span>
+      <span class="field-label">{{ tx("lore（每行一条）") }}</span>
       <textarea
         v-model="itemEntry.lore"
         class="mc-input lang-lore"
         data-field="lang-lore"
         rows="4"
-        placeholder="&7第一行&#10;&7第二行"
+        :placeholder="tx('&7第一行 / &7第二行')"
       />
     </label>
     <div class="lang-actions">
-      <button class="mc-button primary" data-action="lang-export" @click="exportSnippet">
-        导出语言片段 .yml
-      </button>
-      <span class="menu-hint">导出后请合并到 lang/en.yml、zh_CN.yml 等；menu/*.yml 永不写入文本。</span>
+      <button class="mc-button primary" data-action="lang-export" @click="exportSnippet"> {{ tx("导出语言片段 .yml") }} </button>
+      <span class="menu-hint">{{ tx("导出后请合并到 lang/en.yml、zh_CN.yml 等；menu/*.yml 永不写入文本。") }}</span>
     </div>
   </section>
 </template>

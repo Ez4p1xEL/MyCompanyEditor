@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { focusText as tx } from './focusConstants';
 import type { ActionModel } from './focusDoc';
 import { ACTION_TYPES } from './focusConstants';
 
@@ -66,12 +67,8 @@ function setPriceGroup(event: Event): void {
 
 <template>
   <div class="action-editor" data-editor="action">
-    <p v-if="model.kind !== 'map' && model.kind !== 'missing'" class="inline-warning">
-      action 当前是 {{ model.kind }}，不是映射；编辑会重建为映射（原值会丢失）。
-    </p>
-    <p v-if="model.hasNone" class="muted">
-      含 <code>none</code>：ActionType 枚举存在但没有执行分支，等于无效果（保留原样）。
-    </p>
+    <p v-if="model.kind !== 'map' && model.kind !== 'missing'" class="inline-warning"> {{ tx("action 当前是") }} {{ model.kind }}{{ tx("，不是映射；编辑会重建为映射（原值会丢失）。") }} </p>
+    <p v-if="model.hasNone" class="muted"> {{ tx("含") }} <code>none</code>{{ tx("：ActionType 枚举存在但没有执行分支，等于无效果（保留原样）。") }} </p>
 
     <div v-for="meta in ACTION_TYPES" :key="meta.value" class="action-row">
       <label class="condition-head">
@@ -93,36 +90,34 @@ function setPriceGroup(event: Event): void {
               class="mc-input"
               :value="item"
               :data-action-input="`${meta.value}-${index}`"
-              :placeholder="meta.value === 'console_command' ? 'eco give %player% 500（不要前导 /）' : '专精 ID'"
+              :placeholder="meta.value === 'console_command' ? tx('eco give %player% 500（不要前导 /）') : tx('专精 ID')"
               @input="setRow(meta.value, index, $event)"
             />
-            <button class="mc-button tiny" type="button" @click="removeRow(meta.value, index)">删除</button>
+            <button class="mc-button tiny" type="button" @click="removeRow(meta.value, index)">{{ tx("删除") }}</button>
           </div>
           <button
             class="mc-button tiny"
             type="button"
             :data-action="`action-add-${meta.value}`"
             @click="addRow(meta.value)"
-          >
-            + 添加一行
-          </button>
+          > {{ tx("+ 添加一行") }} </button>
         </div>
         <input
           v-else
           class="mc-input"
           :value="model.setPriceGroup?.raw ?? ''"
           :data-action-input="meta.value"
-          placeholder="例如 mob-company（非空字符串）"
+          :placeholder="tx('例如 mob-company（非空字符串）')"
           @input="setPriceGroup"
         />
       </template>
     </div>
 
     <details v-if="model.unknown.length" class="extras">
-      <summary>未识别 action 键 {{ model.unknown.length }} 个（原样保留，插件跳过）</summary>
+      <summary>{{ tx("未识别 action 键") }} {{ model.unknown.length }} {{ tx("个（原样保留，插件跳过）") }}</summary>
       <ul>
         <li v-for="extra in model.unknown" :key="extra.key">
-          <code>{{ extra.key }}</code>：{{ extra.preview }}
+          <code>{{ extra.key }}</code>: {{ extra.preview }}
         </li>
       </ul>
     </details>
