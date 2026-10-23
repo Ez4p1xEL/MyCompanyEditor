@@ -148,12 +148,33 @@ function exportSnippet(): void {
 <style>
 .lang-panel .lang-target {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: flex-end;
   margin-bottom: 8px;
+  min-width: 0;
+  max-width: 100%;
 }
-.lang-panel .lang-target .field {
-  flex: 1;
+.lang-panel .lang-target > .field {
+  flex: 0 1 190px;
+  min-width: 0;
+  max-width: 100%;
+}
+.lang-panel .lang-target > .mc-input {
+  flex: 1 1 260px;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.lang-panel .lang-target .mc-select {
+  min-width: 0;
+  max-width: 100%;
+}
+.lang-panel .lang-target code {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .lang-lore {
   resize: vertical;

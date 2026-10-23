@@ -1101,7 +1101,8 @@ ensureSelection();
 }
 .menu-layout {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 330px;
+  grid-template-columns: 220px minmax(0, 1fr) clamp(380px, 24vw, 460px);
+  min-width: 0;
   gap: 12px;
   align-items: start;
 }
@@ -1413,6 +1414,9 @@ ensureSelection();
 }
 
 .menu-items {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
   border: 1px solid var(--border);
   background: var(--panel);
   padding: 10px;
@@ -1421,6 +1425,8 @@ ensureSelection();
   display: flex;
   flex-direction: column;
   gap: 8px;
+  --menu-item-row-height: 62px;
+  --menu-item-gap: 3px;
 }
 .item-add-row {
   display: flex;
@@ -1429,8 +1435,9 @@ ensureSelection();
 .item-list {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  max-height: 300px;
+  gap: var(--menu-item-gap);
+  max-height: calc(9 * var(--menu-item-row-height) + 8 * var(--menu-item-gap) + 12px);
+  flex: 0 0 auto;
   overflow: auto;
   border-top: 1px solid var(--border);
   padding-top: 6px;
@@ -1440,6 +1447,8 @@ ensureSelection();
   gap: 7px;
   align-items: center;
   width: 100%;
+  min-height: var(--menu-item-row-height);
+  box-sizing: border-box;
   padding: 4px 5px;
   border: 1px solid transparent;
   background: transparent;
@@ -1475,17 +1484,65 @@ ensureSelection();
 }
 .item-editor {
   border-color: var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  text-align: left;
+  flex: 0 0 auto;
+  padding: 8px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: visible;
+}
+.item-editor > .field,
+.item-editor > .material-preview,
+.item-editor > .material-presets,
+.item-editor > .slot-actions,
+.item-editor > .slot-single-row,
+.item-editor > .slot-add-row,
+.item-editor > .menu-extras {
+  width: 100%;
+  max-width: 100%;
+}
+.item-editor .field {
+  align-items: stretch;
+  width: 100%;
+  max-width: 100%;
+}
+.item-editor .mc-input,
+.item-editor .mc-select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.item-editor .material-preview,
+.item-editor .material-presets,
+.item-editor .slot-actions,
+.item-editor .slot-chips,
+.item-editor .slot-add-row {
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+.item-editor > *,
+.menu-items > * {
+  min-width: 0;
+  max-width: 100%;
 }
 .item-editor-head {
   display: flex;
   justify-content: space-between;
   gap: 6px;
   align-items: flex-start;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 .item-editor-head h3 {
   margin: 0;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .item-editor-actions {
   display: flex;
@@ -1494,18 +1551,28 @@ ensureSelection();
 }
 .material-preview {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  min-width: 0;
   margin-top: 6px;
   font-size: 11px;
   color: var(--muted);
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .material-presets {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
+  min-width: 0;
   margin-top: 4px;
+}
+.material-presets .mc-button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 .slot-actions,
 .slot-add-row {
@@ -1546,8 +1613,32 @@ ensureSelection();
   font-size: 11px;
   color: var(--muted);
 }
+.field {
+  min-width: 0;
+  max-width: 100%;
+}
+.menu-extras,
+.menu-extras li,
+.menu-extras code,
+.slot-chip,
+.inline-warning {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.menu-extras ul {
+  min-width: 0;
+  max-width: 100%;
+  padding-left: 18px;
+}
 .yaml-preview {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 10px;
+  overflow: hidden;
 }
 .yaml-preview summary {
   cursor: pointer;
@@ -1564,7 +1655,12 @@ ensureSelection();
   font-family: var(--mono);
   font-size: 12px;
   line-height: 1.5;
-  white-space: pre;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .field {
   display: flex;
@@ -1595,6 +1691,53 @@ ensureSelection();
 }
 .file-input {
   display: none;
+}
+.menu-card {
+  display: block;
+  width: 100%;
+  cursor: default;
+}
+.menu-card.item-editor {
+  display: flex;
+  flex-direction: column;
+}
+.menu-props-grid {
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+}
+.options-table,
+.options-head,
+.options-row {
+  min-width: 0;
+  max-width: 100%;
+}
+.options-head,
+.options-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 90px) auto;
+}
+.options-head > *,
+.options-row > * {
+  min-width: 0;
+}
+.options-add {
+  flex-wrap: wrap;
+}
+.options-add .mc-input {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+:deep(.lang-panel .lang-target) {
+  flex-wrap: wrap;
+}
+:deep(.lang-panel .lang-target .field) {
+  min-width: 0;
+}
+:deep(.lang-panel .lang-target code) {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+:deep(.lang-panel .mc-input),
+:deep(.lang-panel .mc-select) {
+  min-width: 0;
 }
 @media (max-width: 1200px) {
   .menu-layout {
