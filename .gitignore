@@ -1,0 +1,38 @@
+# Upstream plugin source snapshot (shallow clone, not part of this project's source)
+reference/
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+*.local
+
+# npm 缓存重定向到项目内（见 .npmrc，DSH 沙箱限制）
+.npm-cache/
+
+# 测试 / 构建产物
+coverage/
+*.tsbuildinfo
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# AgentTeams runtime state (local only)
+.agent-teams/
+
+# Local delivery artifacts (the source itself is committed; do not commit bundles)
+deliverables/
+*.zip
+local_test.bat
+
+# Local logs / temporary verification files
+*.log
+.tmp-*
+.verify/
+
+# Local knowledge base (not shipped; docs/ARCHITECTURE.md, docs/DEPLOYMENT.md and
+# docs/fixtures/ are committed)
+docs/mycompany-spec/

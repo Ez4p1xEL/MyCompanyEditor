@@ -1,0 +1,157 @@
+stone_breaker:
+  label: 'Stone Breaker'
+  description:
+    - '&7We receive a job'
+    - '&7from the miners.'
+  quest:
+    1:
+      type: break_block
+      item: stone
+      amount: 16
+  reward:
+    - 'item;diamond;16'
+    - 'company_income;1500.0'
+    - 'money;100.0'
+    - 'experience;10'
+miner:
+  label: 'Miner'
+  description:
+    - '&7Mine ores'
+  quest:
+    1:
+      type: break_block
+      item: iron_ore
+      amount: 4
+    2:
+      type: break_block
+      item: gold_ore
+      amount: 4
+    damn:
+      type: break_block
+      item: diamond_ore
+      amount: 4
+  reward:
+    - 'item;nether_star;1'
+    - 'company_income;3000.0'
+diamond_finder:
+  label: 'Diamond Finder'
+  description:
+    - '&7find some diamonds'
+  quest:
+    example:
+      type: break_block
+      item: diamond_ore
+      amount: 8
+  reward:
+    - 'company_income;1000.0'
+lumberjack:
+  label: 'Lumberjack'
+  description:
+    - '&7break some oak logs'
+  quest:
+    oak:
+      type: break_block
+      item: oak_log
+      amount: 4
+  reward:
+    - 'company_income;1000.0'
+cobblestone_lover:
+  label: 'Cobblestone Lover'
+  description:
+    - '&7break some cobblestones'
+  quest:
+    oak:
+      type: break_block
+      item: cobblestone
+      amount: 8
+  reward:
+    - 'company_income;1000.0'
+grass_eater:
+  label: 'Grass Eater'
+  description:
+    - '&7break some grasses'
+  quest:
+    oak:
+      type: break_block
+      item: grass_block
+      amount: 8
+  reward:
+    - 'company_income;1000.0'
+example_place_block:
+  label: 'Placer Example'
+  description:
+    - '&7Place some dirt'
+  quest:
+    dirt:
+      type: place_block
+      item: dirt
+      amount: 4
+  reward:
+    - 'company_income;500.0'
+mob_hunter:
+  label: 'Mob Hunter'
+  description:
+    - '&7hunt some mobs'
+    - '&7better in nighttime...'
+  quest:
+    zombie:
+      type: mob_kill
+      mob: zombie
+      amount: 3
+    skeleton:
+      type: mob_kill
+      mob: skeleton
+      amount: 2
+    creeper:
+      type: mob_kill
+      mob: creeper
+      amount: 2
+    spider:
+      type: mob_kill
+      mob: spider
+      amount: 2
+  reward:
+    - 'company_income;650.0'
+    - 'money;1300.0'
+    - 'experience;20'
+fisherman:
+  label: 'Fisherman'
+  description:
+    - '&7catch some fishes'
+    - '&7better near water...'
+  quest:
+    fish:
+      type: fish
+      item: cod
+      amount: 1
+  reward:
+    - 'company_income;700.0'
+    - 'money;1200.0'
+    - 'experience;25'
+feeder:
+  label: 'Feeder'
+  description:
+    - '&7feed some animals'
+    - '&7better near animals...'
+  quest:
+    cow:
+      type: feed
+      mob: cow
+      amount: 1
+    pig:
+      type: feed
+      mob: pig
+      amount: 1
+    chicken:
+      type: feed
+      mob: chicken
+      amount: 1
+    sheep:
+      type: feed
+      mob: sheep
+      amount: 1
+  reward:
+    - 'company_income;1300.0'
+    - 'money;1200.0'
+    - 'experience;15'
+    - 'console_command;say %player% has completed the feeder order!'

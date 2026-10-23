@@ -1,0 +1,3 @@
+# This is not language setting, please refer to lang/your_language.yml
+global:
+  no-perm: BARRIER
