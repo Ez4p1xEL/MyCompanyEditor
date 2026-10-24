@@ -1,16 +1,11 @@
 import { ENTITY_TYPE_NAMES, MATERIAL_NAMES } from './data/minecraftEnums';
-import { getLocale } from '../../i18n';
-import enFocus from '../../i18n/locales/en/focus';
+import { CONDITION_TYPES, ACTION_TYPES, EFFECT_TYPES, CONDITION_KEYS, ACTION_KEYS, EFFECT_KEYS, conditionTypeMeta, actionTypeMeta, effectTypeMeta } from './catalog';
+import type { ConditionTypeMeta, ActionTypeMeta, EffectTypeMeta } from './catalog';
+import { focusText } from './focusText';
 
-export function focusText(key: string, params?: Record<string, string | number>): string {
-  const lookup = encodeURIComponent(key);
-  const template = getLocale() === 'zh-CN' ? key : (enFocus[lookup] ?? key);
-  if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (match: string, name: string) => {
-    const value = params[name];
-    return value === undefined ? match : String(value);
-  });
-}
+export { CONDITION_TYPES, ACTION_TYPES, EFFECT_TYPES, CONDITION_KEYS, ACTION_KEYS, EFFECT_KEYS, conditionTypeMeta, actionTypeMeta, effectTypeMeta };
+export type { ConditionTypeMeta, ActionTypeMeta, EffectTypeMeta };
+export { focusText };
 
 export const FIXED_FOCUS_IDS = ['none', 'mob'] as const;
 export type FixedFocusId = (typeof FIXED_FOCUS_IDS)[number];
@@ -80,155 +75,8 @@ export function coerceDefault(type: FocusValueType, current: string): string {
   return current;
 }
 
-export interface ConditionTypeMeta {
-  value: string;
-  label: string;
-  kind: 'number' | 'expertise' | 'expertises' | 'logs';
-  hint: string;
-}
-
-export const CONDITION_TYPES: ConditionTypeMeta[] = [
-  {
-    value: 'company_money',
-    get label() {
-      return focusText("公司资金");
-    },
-    kind: 'number',
-    get hint() {
-      return focusText("组件公司资金 ≥ N；解锁 expertise 时扣除（focus 级设置不扣款）。负数会恒真且可能加钱，必须阻断。");
-    },
-  },
-  {
-    value: 'expertise',
-    get label() {
-      return focusText("前置专精（单个）");
-    },
-    kind: 'expertise',
-    get hint() {
-      return focusText("同 focus 内某个节点已解锁；空串永远不满足。");
-    },
-  },
-  {
-    value: 'expertises',
-    get label() {
-      return focusText("前置专精组（列表）");
-    },
-    kind: 'expertises',
-    get hint() {
-      return focusText("列表项之间 AND；单项内用逗号分隔表示 OR，例如 “a,b”。");
-    },
-  },
-  {
-    value: 'company_log',
-    get label() {
-      return focusText("公司计数（日志）");
-    },
-    kind: 'logs',
-    get hint() {
-      return focusText("每行 “mob_kill_count,ENTITY,数值”；段数必须为 3，ENTITY 必须是大写枚举名。");
-    },
-  },
-];
-
-export function conditionTypeMeta(key: string): ConditionTypeMeta | undefined {
-  return CONDITION_TYPES.find((meta) => meta.value === key);
-}
-
 /** 目前只有 mob_kill_count 会被 LogListener 写入。 */
 export const LOG_IDS = ['mob_kill_count'] as const;
-
-export interface ActionTypeMeta {
-  value: string;
-  label: string;
-  kind: 'stringList' | 'string';
-  hint: string;
-}
-
-export const ACTION_TYPES: ActionTypeMeta[] = [
-  {
-    value: 'console_command',
-    get label() {
-      return focusText("控制台命令");
-    },
-    kind: 'stringList',
-    get hint() {
-      return focusText("字符串列表；命令含 %player% 时会对公司所有员工分别执行一次。");
-    },
-  },
-  {
-    value: 'enable_expertise',
-    get label() {
-      return focusText("重新启用专精");
-    },
-    kind: 'stringList',
-    get hint() {
-      return focusText("字符串列表：节点 id；只能救回被 disable 的节点。");
-    },
-  },
-  {
-    value: 'disable_expertise',
-    get label() {
-      return focusText("禁用专精");
-    },
-    kind: 'stringList',
-    get hint() {
-      return focusText("字符串列表：节点 id；被禁用节点从常规菜单隐藏、效果失效。");
-    },
-  },
-  {
-    value: 'set_price_group',
-    get label() {
-      return focusText("设置价格组");
-    },
-    kind: 'string',
-    get hint() {
-      return focusText("非空标量字符串（例如 mob-company），影响内置商店收购倍率。");
-    },
-  },
-];
-
-export function actionTypeMeta(key: string): ActionTypeMeta | undefined {
-  const lower = key.toLowerCase();
-  return ACTION_TYPES.find((meta) => meta.value === lower);
-}
-
-export interface EffectTypeMeta {
-  value: string;
-  label: string;
-  kind: 'drops' | 'damage';
-  hint: string;
-}
-
-export const EFFECT_TYPES: EffectTypeMeta[] = [
-  {
-    value: 'mob_drops_add',
-    get label() {
-      return focusText("mob_drops_add（掉落增量）");
-    },
-    kind: 'drops',
-    get hint() {
-      return focusText("每个实体 key 下是字符串列表：“ITEM,[+|*]N,CHANCE”。");
-    },
-  },
-  {
-    value: 'mob_damage_multiply',
-    get label() {
-      return focusText("mob_damage_multiply（伤害倍率）");
-    },
-    kind: 'damage',
-    get hint() {
-      return focusText("每个实体 key 下是字符串列表：“MULTIPLIER,CHANCE”。");
-    },
-  },
-];
-
-export function effectTypeMeta(key: string): EffectTypeMeta | undefined {
-  return EFFECT_TYPES.find((meta) => meta.value === key);
-}
-
-export const CONDITION_KEYS = CONDITION_TYPES.map((meta) => meta.value);
-export const ACTION_KEYS = ACTION_TYPES.map((meta) => meta.value);
-export const EFFECT_KEYS = EFFECT_TYPES.map((meta) => meta.value);
 
 export const KNOWN_FOCUS_KEYS = ['id', 'label', 'description', 'condition', 'expertise'];
 export const KNOWN_NODE_KEYS = [

@@ -1,8 +1,10 @@
 import { t } from '../../i18n';
+import { QUEST_TYPES as ORDER_QUEST_TYPES, REWARD_TYPES as ORDER_REWARD_TYPES } from '../orders/catalog';
+import { CONDITION_KEYS, ACTION_KEYS, EFFECT_KEYS } from '../focus/catalog';
 
 /** gettext 风格帮助文案：中文原文为 key，en/help 提供译文，zh 直接返回原文。 */
-function helpText(source: string): string {
-  return t(`help.${encodeURIComponent(source).replace(/\./g, '%2E')}`);
+function helpText(source: string, params?: Record<string, string | number>): string {
+  return t(`help.${encodeURIComponent(source).replace(/\./g, '%2E')}`, params);
 }
 
 export const HELP_LABELS = {
@@ -35,51 +37,31 @@ export const HELP_LABELS = {
   },
 };
 
-export const QUEST_TYPES = [
-  {
-    id: 'break_block',
-    get label() {
-      return helpText('破坏方块');
-    },
-    target: 'item',
+export const QUEST_TYPES = ORDER_QUEST_TYPES.map((meta) => ({
+  id: meta.value,
+  get label() {
+    return meta.helpLabelKey ? helpText(meta.helpLabelKey) : meta.label;
   },
-  {
-    id: 'place_block',
-    get label() {
-      return helpText('放置方块');
-    },
-    target: 'item',
-  },
-  {
-    id: 'fish',
-    get label() {
-      return helpText('钓鱼');
-    },
-    target: 'item',
-  },
-  {
-    id: 'mob_kill',
-    get label() {
-      return helpText('击杀实体');
-    },
-    target: 'mob',
-  },
-  {
-    id: 'feed',
-    get label() {
-      return helpText('喂食动物');
-    },
-    target: 'mob',
-  },
-];
+  target: meta.target,
+}));
 
-export const REWARD_TYPES = [
-  { id: 'item', syntax: 'item;<MATERIAL>;<amount>' },
-  { id: 'company_income', syntax: 'company_income;<amount>' },
-  { id: 'money', syntax: 'money;<amount>' },
-  { id: 'experience', syntax: 'experience;<amount>' },
-  { id: 'console_command', syntax: 'console_command;<command>' },
-];
+export const REWARD_TYPES = ORDER_REWARD_TYPES.map((meta) => ({
+  id: meta.value,
+  syntax: meta.syntax,
+  get label() {
+    return meta.label;
+  },
+}));
+
+export type FocusLimitKind = 'condition' | 'action' | 'effect';
+
+/** 稳定前缀/后缀 + catalog keys；新增 key 不需要新增翻译条目。 */
+export function focusLimitText(kind: FocusLimitKind, keys: string[]): string {
+  const list = keys.join(' / ');
+  if (kind === 'condition') return helpText('condition：{list}。', { list });
+  if (kind === 'action') return helpText('action：{list}（none 无效果）。', { list });
+  return helpText('effect：{list}（键必须小写）。', { list });
+}
 
 export const FOCUS_LIMITS = [
   {
@@ -101,19 +83,17 @@ export const FOCUS_LIMITS = [
   },
   {
     get text() {
-      return helpText('condition：company_money / expertise / expertises / company_log。');
+      return focusLimitText('condition', CONDITION_KEYS);
     },
   },
   {
     get text() {
-      return helpText(
-        'action：console_command / enable_expertise / disable_expertise / set_price_group（none 无效果）。',
-      );
+      return focusLimitText('action', ACTION_KEYS);
     },
   },
   {
     get text() {
-      return helpText('effect：mob_drops_add / mob_damage_multiply（键必须小写）。');
+      return focusLimitText('effect', EFFECT_KEYS);
     },
   },
 ];

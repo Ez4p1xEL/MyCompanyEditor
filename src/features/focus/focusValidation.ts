@@ -22,7 +22,20 @@ import {
   parseDropRow,
   splitOrGroup,
 } from './focusConstants';
+import { ACTION_KEYS, EFFECT_KEYS, CONDITION_KEYS } from './catalog';
 import { ENTITY_TYPE_NAMES } from './data/minecraftEnums';
+
+export function actionTypeAllowedHint(keys: string[] = ACTION_KEYS): string {
+  return validationText('只允许 {p0}', { p0: keys.join('/') });
+}
+
+export function effectTypeAllowedHint(keys: string[] = EFFECT_KEYS): string {
+  return validationText('只允许小写 {p0}', { p0: keys.join(' / ') });
+}
+
+export function conditionUnknownHint(keys: string[] = CONDITION_KEYS): string {
+  return validationText('删除或改成 {p0}', { p0: keys.join('/') });
+}
 
 export interface FocusIssue extends ValidationIssue {
   nodeId?: string;
@@ -119,7 +132,7 @@ function validateCondition(
     issues.push(
       warn(ctx.file, 'CON-09', validationText("{p0}含未知条件键 “{p1}”，插件会静默忽略", { p0: ownerLabel, p1: extra.key }), {
         ...base,
-        fixHint: validationText("删除或改成 company_money/expertise/expertises/company_log"),
+        fixHint: conditionUnknownHint(),
       }),
     );
   }
@@ -261,7 +274,7 @@ function validateAction(action: ActionModelLike, ctx: RefContext): FocusIssue[] 
     issues.push(
       warn(ctx.file, 'ACT-01', validationText("未知 action 键 “{p0}”（大小写不敏感匹配也失败），插件会跳过", { p0: extra.key }), {
         ...base,
-        fixHint: validationText("只允许 console_command/enable_expertise/disable_expertise/set_price_group"),
+        fixHint: actionTypeAllowedHint(),
       }),
     );
   }
@@ -369,7 +382,7 @@ function validateEffect(effect: EffectModelLike, ctx: RefContext): FocusIssue[] 
         ctx.file,
         'EFF-01',
         validationText("未知/大小写不正确的 effect 键 “{p0}”；EffectType.getById 大小写敏感，插件会跳过", { p0: extra.key }),
-        { ...base, fixHint: validationText("只允许小写 mob_drops_add / mob_damage_multiply") },
+        { ...base, fixHint: effectTypeAllowedHint() },
       ),
     );
   }

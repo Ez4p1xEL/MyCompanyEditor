@@ -22,6 +22,19 @@ import {
   questTypeMeta,
   rewardTypeMeta,
 } from './ordersConstants';
+import { QUEST_TYPE_KEYS, REWARD_TYPE_KEYS } from './catalog';
+
+export function questTypeAllowedMessage(questId: string, type: string, keys: string[] = QUEST_TYPE_KEYS): string {
+  return validationText('quest “{p0}” 的 type “{p1}” 非法（只允许 {p2}）', {
+    p0: questId,
+    p1: type,
+    p2: keys.join('/'),
+  });
+}
+
+export function rewardTypeAllowedHint(keys: string[] = REWARD_TYPE_KEYS): string {
+  return validationText('从下拉框选择 {p0}', { p0: keys.join('/') });
+}
 
 export interface OrdersIssue extends ValidationIssue {
   orderId?: string;
@@ -241,7 +254,7 @@ function checkQuest(
       block(
         file,
         'ORD-20',
-        validationText("quest “{p0}” 的 type “{p1}” 非法（只允许 break_block/place_block/fish/mob_kill/feed）", { p0: quest.id, p1: type }),
+        questTypeAllowedMessage(quest.id, type),
         { ...base, fixHint: validationText("从下拉框选择合法 type") },
       ),
     );
@@ -414,7 +427,7 @@ function checkReward(
         file,
         'RWD-02',
         validationText("未知奖励类型 “{p0}”：插件会静默忽略，已原样保留", { p0: segments[0] ?? '' }),
-        { ...base, fixHint: validationText("从下拉框选择 item/company_income/money/experience/console_command") },
+        { ...base, fixHint: rewardTypeAllowedHint() },
       ),
     );
     return;
