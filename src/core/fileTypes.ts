@@ -27,10 +27,10 @@ export const MENU_IDS = [
   'position_permission_list',
 ] as const;
 
-/** focus 固定为 none / mob（FixedFocusList.java:8-12）。 */
-export const FOCUS_IDS = ['none', 'mob'] as const;
+/** focus 固定为 none / mob / ore（FixedFocusList.java）。 */
+export const FOCUS_IDS = ['none', 'mob', 'ore'] as const;
 
-export const FIXED_FOCUS_PATHS = ['focus/none.yml', 'focus/mob.yml'] as const;
+export const FIXED_FOCUS_PATHS = ['focus/none.yml', 'focus/mob.yml', 'focus/ore.yml'] as const;
 export const FIXED_MENU_PATHS = MENU_IDS.map((id) => `menu/${id}.yml`);
 
 const KIND_ORDER: FileKind[] = ['orders', 'focus', 'menu', 'focus-tree', 'menus-config', 'unknown'];

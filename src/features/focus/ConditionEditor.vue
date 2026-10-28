@@ -8,6 +8,9 @@ import {
   composeCompanyLogRow,
   parseCompanyLogRow,
 } from './focusConstants';
+import { BLOCK_MATERIAL_NAMES } from './data/minecraftEnums';
+
+const BLOCK_OPTIONS = [...BLOCK_MATERIAL_NAMES].sort();
 
 const props = defineProps<{
   model: ConditionModel;
@@ -78,6 +81,18 @@ function logRow(index: number) {
   return parseCompanyLogRow(raw);
 }
 
+function isBlockLog(index: number): boolean {
+  return logRow(index).logId === 'block_break_count';
+}
+
+function logListId(index: number): string {
+  return isBlockLog(index) ? 'focus-block-options' : 'focus-entity-options';
+}
+
+function logPlaceholder(index: number): string {
+  return isBlockLog(index) ? tx('COAL_ORE（大写方块 Material）') : tx('ZOMBIE（大写枚举）');
+}
+
 function setLog(index: number, patch: { logId?: string; entity?: string; threshold?: string }): void {
   const current = logRow(index);
   const raw = composeCompanyLogRow(
@@ -92,6 +107,11 @@ function setLog(index: number, patch: { logId?: string; entity?: string; thresho
 
 function addLog(): void {
   emit('set', 'company_log', [...(props.model.companyLog?.items ?? []), 'mob_kill_count,ZOMBIE,0']);
+}
+
+function changeLogId(index: number, logId: string): void {
+  const entity = logId === 'block_break_count' ? 'STONE' : 'ZOMBIE';
+  setLog(index, { logId, entity });
 }
 
 function removeLog(index: number): void {
@@ -155,21 +175,21 @@ function removeLog(index: number): void {
           <button class="mc-button tiny" type="button" data-action="condition-add-or" @click="addOrGroup"> {{ tx("+ 添加一组") }} </button>
         </div>
         <div v-else-if="meta.kind === 'logs'" class="list-editor">
-          <div v-for="(row, index) in model.companyLog?.items ?? []" :key="`${index}-${row}`" class="log-row">
+          <div v-for="(_, index) in model.companyLog?.items ?? []" :key="index" class="log-row">
             <select
               class="mc-select"
               :value="logRow(index).logId"
               :data-condition-input="`company-log-id-${index}`"
-              @change="setLog(index, { logId: ($event.target as HTMLSelectElement).value })"
+              @change="changeLogId(index, ($event.target as HTMLSelectElement).value)"
             >
               <option v-for="logId in LOG_IDS" :key="logId" :value="logId">{{ logId }}</option>
             </select>
             <input
               class="mc-input entity-input"
-              list="focus-entity-options"
+              :list="logListId(index)"
               :value="logRow(index).entity"
               :data-condition-input="`company-log-entity-${index}`"
-              :placeholder="tx('ZOMBIE（大写枚举）')"
+              :placeholder="logPlaceholder(index)"
               @input="setLog(index, { entity: ($event.target as HTMLInputElement).value })"
             />
             <input
@@ -194,5 +214,9 @@ function removeLog(index: number): void {
         </li>
       </ul>
     </details>
+
+    <datalist id="focus-block-options">
+      <option v-for="block in BLOCK_OPTIONS" :key="block" :value="block" />
+    </datalist>
   </div>
 </template>

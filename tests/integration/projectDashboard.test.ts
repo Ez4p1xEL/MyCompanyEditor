@@ -58,6 +58,8 @@ describe('项目工作台', () => {
     expect(wrapper.text()).toContain('orders.yml');
     expect(wrapper.findAll('[data-file^="menu/"]')).toHaveLength(18);
     expect(wrapper.find('[data-file="focus/none.yml"]').exists()).toBe(true);
+    expect(wrapper.find('[data-file="focus/mob.yml"]').exists()).toBe(true);
+    expect(wrapper.find('[data-file="focus/ore.yml"]').exists()).toBe(true);
     await wrapper.find('[data-file="orders.yml"]').trigger('click');
     await flushPromises();
     expect(wrapper.text()).toContain('顶层条目（10）');
@@ -85,10 +87,11 @@ describe('项目工作台', () => {
     expect(filenames).toEqual(['mycompany-project.zip']);
     const bytes = new Uint8Array(await blobs[0]!.arrayBuffer());
     const entries = await readZip(bytes);
-    expect(entries).toHaveLength(21);
+    expect(entries).toHaveLength(22);
     expect(entries.some((entry) => entry.name === 'orders.yml')).toBe(true);
     expect(entries.some((entry) => entry.name === 'focus/none.yml')).toBe(true);
     expect(entries.some((entry) => entry.name === 'focus/mob.yml')).toBe(true);
+    expect(entries.some((entry) => entry.name === 'focus/ore.yml')).toBe(true);
     expect(entries.some((entry) => entry.name === 'menus.yml')).toBe(false);
     expect(entries.some((entry) => entry.name.includes('farming'))).toBe(false);
     restore();

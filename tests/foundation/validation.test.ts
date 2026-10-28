@@ -78,7 +78,7 @@ describe('校验框架', () => {
   });
 
   it('遗留配置文件给出 info 提示', () => {
-    const result = validateProject([createProjectFile('focus.yml', fixtureText('focus.yml'))]);
+    const result = validateProject([createProjectFile('focus.yml', 'focus-tree:\n  nodes: {}\n')]);
     expect(result.issues.some((item) => item.code === 'FILE_LEGACY')).toBe(true);
   });
 });

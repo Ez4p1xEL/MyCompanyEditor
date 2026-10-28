@@ -21,7 +21,7 @@ describe('文件类型识别', () => {
     expect(detectFileKind('copy.yml', fixtureText('orders.yml'))).toBe('orders');
     expect(detectFileKind('copy.yml', fixtureText('menu/orders.yml'))).toBe('menu');
     expect(detectFileKind('copy.yml', fixtureText('focus/mob.yml'))).toBe('focus');
-    expect(detectFileKind('copy.yml', fixtureText('focus.yml'))).toBe('focus-tree');
+    expect(detectFileKind('copy.yml', 'focus-tree:\n  nodes: {}\n')).toBe('focus-tree');
     expect(detectFileKind('copy.yml', fixtureText('menus.yml'))).toBe('menus-config');
     expect(detectFileKind('copy.yml', 'hello: world')).toBe('unknown');
 

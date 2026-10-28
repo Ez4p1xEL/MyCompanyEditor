@@ -147,7 +147,7 @@ export const MENU_META: MenuMeta[] = [
       return menuText("选择公司 focus");
     },
     category: '专精',
-    pageOption: { key: 'focus-per-page', defaultValue: 5 },
+    pageOption: { key: 'focus-per-page', defaultValue: 10 },
     templates: ['focus'],
   },
 ];

@@ -1,4 +1,4 @@
-import { ENTITY_TYPE_NAMES, MATERIAL_NAMES } from './data/minecraftEnums';
+import { BLOCK_MATERIAL_NAMES, ENTITY_TYPE_NAMES, MATERIAL_NAMES } from './data/minecraftEnums';
 import { CONDITION_TYPES, ACTION_TYPES, EFFECT_TYPES, CONDITION_KEYS, ACTION_KEYS, EFFECT_KEYS, conditionTypeMeta, actionTypeMeta, effectTypeMeta } from './catalog';
 import type { ConditionTypeMeta, ActionTypeMeta, EffectTypeMeta } from './catalog';
 import { focusText } from './focusText';
@@ -7,9 +7,9 @@ export { CONDITION_TYPES, ACTION_TYPES, EFFECT_TYPES, CONDITION_KEYS, ACTION_KEY
 export type { ConditionTypeMeta, ActionTypeMeta, EffectTypeMeta };
 export { focusText };
 
-export const FIXED_FOCUS_IDS = ['none', 'mob'] as const;
+export const FIXED_FOCUS_IDS = ['none', 'mob', 'ore'] as const;
 export type FixedFocusId = (typeof FIXED_FOCUS_IDS)[number];
-export const FIXED_FOCUS_PATHS = ['focus/none.yml', 'focus/mob.yml'] as const;
+export const FIXED_FOCUS_PATHS = ['focus/none.yml', 'focus/mob.yml', 'focus/ore.yml'] as const;
 export const REFERENCE_PREFIX = 'focus-reference/';
 export const REFERENCE_SUFFIX = '.reference.yml';
 
@@ -75,8 +75,12 @@ export function coerceDefault(type: FocusValueType, current: string): string {
   return current;
 }
 
-/** 目前只有 mob_kill_count 会被 LogListener 写入。 */
-export const LOG_IDS = ['mob_kill_count'] as const;
+/** LogListener 会写入的计数日志：mob_kill_count 用 EntityType，block_break_count 用方块 Material。 */
+export const LOG_IDS = ['mob_kill_count', 'block_break_count'] as const;
+export type FocusLogId = (typeof LOG_IDS)[number];
+
+/** 官方 item_durability_save 只内置 pickaxe 组；其他小写组会告警。 */
+export const KNOWN_ITEM_TYPES = ['pickaxe'] as const;
 
 export const KNOWN_FOCUS_KEYS = ['id', 'label', 'description', 'condition', 'expertise'];
 export const KNOWN_NODE_KEYS = [
@@ -90,14 +94,36 @@ export const KNOWN_NODE_KEYS = [
   'effect',
 ];
 
+/** 插件用 equalsIgnoreCase 判断组 key，小写 all 与 ALL 等价。 */
+function isAllValue(value: string): boolean {
+  return value.toLowerCase() === 'all';
+}
+
 export function isAllOrEntity(entity: string): boolean {
-  return entity === 'ALL' || ENTITY_TYPE_NAMES.has(entity.toUpperCase());
+  return isAllValue(entity) || ENTITY_TYPE_NAMES.has(entity.toUpperCase());
 }
 
 export function isAllOrMaterial(item: string): boolean {
-  if (item === 'ALL') return true;
+  if (isAllValue(item)) return true;
   if (item.includes(':')) return false;
   return MATERIAL_NAMES.has(item.toUpperCase());
+}
+
+/** 方块 effect 的组 key：ALL/all 或方块 Material；物品 Material 会返回 null 并扩大范围。 */
+export function isAllOrBlock(value: string): boolean {
+  if (isAllValue(value)) return true;
+  if (value.includes(':')) return false;
+  return BLOCK_MATERIAL_NAMES.has(value.toUpperCase());
+}
+
+/** item_durability_save 的组 key：ALL/all、物品 Material 或小写 item-type（如 pickaxe）。 */
+export function isAllOrItemType(value: string): boolean {
+  return isAllValue(value) || /^[a-z][a-z0-9_-]*$/.test(value);
+}
+
+/** block_break_count 的 TYPE：必须是大写方块 Material，禁止 ALL/小写。 */
+export function isBlockMaterialName(value: string): boolean {
+  return value === value.toUpperCase() && BLOCK_MATERIAL_NAMES.has(value);
 }
 
 export interface DropRowParsed {
@@ -162,6 +188,81 @@ export function parseDamageRow(raw: string): DamageRowParsed {
 
 export function composeDamageRow(multiplier: string, chance: string): string {
   return `${multiplier.trim()},${chance.trim()}`;
+}
+
+export interface ChanceRowParsed {
+  raw: string;
+  valid: boolean;
+  chance: string;
+  reason?: string;
+}
+
+/** ore_smelt：恰好 1 段概率。 */
+export function parseChanceRow(raw: string): ChanceRowParsed {
+  const parts = raw.split(',');
+  const chance = (parts[0] ?? '').trim();
+  if (parts.length !== 1) {
+    return { raw, chance, valid: false, reason: focusText('需要 1 段（当前 {count} 段）', { count: parts.length }) };
+  }
+  return { raw, chance, valid: true };
+}
+
+export function composeChanceRow(chance: string): string {
+  return chance.trim();
+}
+
+export interface HasteRowParsed {
+  raw: string;
+  valid: boolean;
+  amplifier: string;
+  duration: string;
+  chance: string;
+  reason?: string;
+}
+
+/** mining_haste：AMPLIFIER,DURATION_TICKS,CHANCE。 */
+export function parseHasteRow(raw: string): HasteRowParsed {
+  const parts = raw.split(',');
+  const base = {
+    raw,
+    amplifier: (parts[0] ?? '').trim(),
+    duration: (parts[1] ?? '').trim(),
+    chance: (parts[2] ?? '').trim(),
+  };
+  if (parts.length !== 3) {
+    return { ...base, valid: false, reason: focusText('需要 3 段（当前 {count} 段）', { count: parts.length }) };
+  }
+  return { ...base, valid: true };
+}
+
+export function composeHasteRow(amplifier: string, duration: string, chance: string): string {
+  return `${amplifier.trim()},${duration.trim()},${chance.trim()}`;
+}
+
+export interface DurabilityRowParsed {
+  raw: string;
+  valid: boolean;
+  percentage: string;
+  chance: string;
+  reason?: string;
+}
+
+/** item_durability_save：PERCENTAGE,CHANCE。 */
+export function parseDurabilityRow(raw: string): DurabilityRowParsed {
+  const parts = raw.split(',');
+  const base = {
+    raw,
+    percentage: (parts[0] ?? '').trim(),
+    chance: (parts[1] ?? '').trim(),
+  };
+  if (parts.length !== 2) {
+    return { ...base, valid: false, reason: focusText('需要 2 段（当前 {count} 段）', { count: parts.length }) };
+  }
+  return { ...base, valid: true };
+}
+
+export function composeDurabilityRow(percentage: string, chance: string): string {
+  return `${percentage.trim()},${chance.trim()}`;
 }
 
 export interface CompanyLogRowParsed {

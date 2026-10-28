@@ -10,6 +10,39 @@ import { fixtureText } from '../foundation/fixtures';
 const NONE = fixtureText('focus/none.yml');
 const MOB = fixtureText('focus/mob.yml');
 
+const ALL_EFFECTS = `id: add-group
+label: Add Group
+expertise:
+  all_effects:
+    label: All effects
+    value_type: boolean
+    default:
+      value: 'false'
+    condition: {}
+    effect:
+      mob_drops_add:
+        ALL: ['STONE,+1,100']
+      mob_damage_multiply:
+        ALL: ['2.0,100']
+      block_drops_add:
+        ALL: ['COAL,+1,100']
+      ore_smelt:
+        ALL: ['15']
+      mining_haste:
+        ALL: ['0,100,25']
+      item_durability_save:
+        ALL: ['1.0,20']
+`;
+
+const EFFECT_KEYS = [
+  'mob_drops_add',
+  'mob_damage_multiply',
+  'block_drops_add',
+  'ore_smelt',
+  'mining_haste',
+  'item_durability_save',
+] as const;
+
 function seed(files: Array<{ path: string; text: string }>) {
   const store = useProjectStore();
   store.importFiles(files);
@@ -261,6 +294,34 @@ expertise:
     expect(updated).toContain('company_money: 100');
     expect(updated).toContain('set_price_group: mob-company');
     expect(updated).toContain('mob_drops_add');
+    wrapper.unmount();
+  });
+
+  it('每个 effect 在 ALL 已存在时仍能新增组', async () => {
+    const store = seed([{ path: 'focus/ore.yml', text: ALL_EFFECTS }]);
+    const wrapper = await mountEditor();
+    await wrapper.find('[data-focus-node="all_effects"]').trigger('click');
+    await flushPromises();
+
+    for (const key of EFFECT_KEYS) {
+      await wrapper.find(`[data-action="effect-add-group-${key}"]`).trigger('click');
+      await flushPromises();
+    }
+    for (const blockKey of ['COAL_ORE', 'DIAMOND_ORE']) {
+      await wrapper.find('[data-effect-new-group="block_drops_add"]').setValue(blockKey);
+      await wrapper.find('[data-action="effect-add-group-block_drops_add"]').trigger('click');
+      await flushPromises();
+    }
+
+    const parsed = parseYamlText(store.files['focus/ore.yml']!.text);
+    expect(parsed.ok).toBe(true);
+    const effect = (parsed.doc!.toJS() as Record<string, any>).expertise.all_effects.effect;
+    for (const key of EFFECT_KEYS) {
+      expect(Object.keys(effect[key]).length, key).toBeGreaterThanOrEqual(2);
+      expect(Object.keys(effect[key])).toContain('ALL');
+    }
+    expect(Object.keys(effect.block_drops_add)).toContain('COAL_ORE');
+    expect(Object.keys(effect.block_drops_add)).toContain('DIAMOND_ORE');
     wrapper.unmount();
   });
 });

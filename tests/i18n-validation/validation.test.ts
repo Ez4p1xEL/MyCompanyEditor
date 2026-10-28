@@ -23,7 +23,7 @@ function allFiles() {
     { path: 'orders.yml', text: fixtureText('orders.yml') },
     { path: 'focus/none.yml', text: fixtureText('focus/none.yml') },
     { path: 'focus/mob.yml', text: fixtureText('focus/mob.yml') },
-    { path: 'focus.yml', text: fixtureText('focus.yml') },
+    { path: 'focus/ore.yml', text: fixtureText('focus/ore.yml') },
     { path: 'menus.yml', text: fixtureText('menus.yml') },
     ...MENU_META.map((meta) => ({
       path: `menu/${meta.id}.yml`,

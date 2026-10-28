@@ -154,7 +154,13 @@ const messages: Record<string, string> = {
   "PLAYER_HEAD%3B%25player%25%EF%BC%88%E9%9D%99%E6%80%81%E8%8F%9C%E5%8D%95%2F%E6%89%93%E5%BC%80%E8%80%85%EF%BC%89": "PLAYER_HEAD;%player% (static menu/opener)",
   "PLAYER_HEAD%3B%25PLAYER%25%EF%BC%88%E5%88%97%E8%A1%A8%E6%A8%A1%E6%9D%BF%2F%E6%9D%A1%E7%9B%AE%E7%8E%A9%E5%AE%B6%EF%BC%89": "PLAYER_HEAD;%PLAYER% (list template/entry player)",
   "PLAYER_HEAD%EF%BC%88%E6%97%A0%20owner%EF%BC%89": "PLAYER_HEAD (no owner)",
-  "%267%E7%AC%AC%E4%B8%80%E8%A1%8C%20%2F%20%267%E7%AC%AC%E4%BA%8C%E8%A1%8C": "&7First line / &7Second line"
+  "%267%E7%AC%AC%E4%B8%80%E8%A1%8C%20%2F%20%267%E7%AC%AC%E4%BA%8C%E8%A1%8C": "&7First line / &7Second line",
+  "%E8%87%AA%E5%8A%A8": "Auto",
+  "%E8%87%AA%E5%8A%A8%E6%8E%92%E5%88%97": "Auto layout",
+  "%E8%87%AA%E5%8A%A8%E6%8E%92%E5%88%97%E9%A2%84%E8%A7%88": "Auto layout preview",
+  "%E8%AF%A5%E6%A7%BD%E7%94%B1%E6%8F%92%E4%BB%B6%E8%87%AA%E5%8A%A8%E6%8E%92%E5%88%97%EF%BC%8C%E4%B8%8D%E4%BC%9A%E5%86%99%E5%85%A5%20YAML": "This slot is arranged automatically by the plugin and is never written to YAML",
+  "%E6%8F%92%E4%BB%B6%E6%8C%89%E5%9B%BA%E5%AE%9A%E9%A1%BA%E5%BA%8F%E4%BB%8E%20focus%20%E6%A8%A1%E6%9D%BF%E6%A7%BD%E4%BD%8D%E5%BC%80%E5%A7%8B%E5%85%8B%E9%9A%86%EF%BC%9Bfocus_ore%20%E5%8F%AA%E8%A6%86%E7%9B%96%20material%EF%BC%8C%E6%98%BE%E7%A4%BA%E5%90%8D%E6%B2%BF%E7%94%A8%20focus%20%E6%A8%A1%E6%9D%BF%EF%BC%8C%E4%B8%8D%E5%86%99%E5%85%A5%20slot%E3%80%82": "The plugin clones from the focus template slot in fixed order; focus_ore only overrides material, keeps the default focus template text, and never writes a slot.",
+  "%E9%9C%80%E8%A6%81%20focus%20%E6%A8%A1%E6%9D%BF%E6%A7%BD%E4%BD%8D%E5%92%8C%E8%87%B3%E5%B0%91%E4%B8%80%E4%B8%AA%E5%B7%B2%E8%BD%BD%E5%85%A5%E7%9A%84%E5%9B%BA%E5%AE%9A%20focus%20%E6%96%87%E4%BB%B6%EF%BC%8C%E6%89%8D%E8%83%BD%E7%94%9F%E6%88%90%E8%87%AA%E5%8A%A8%E6%8E%92%E5%88%97%E3%80%82": "A focus template slot and at least one loaded fixed focus file are required to preview the automatic layout."
 };
 
 export default messages;

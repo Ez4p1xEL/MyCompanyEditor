@@ -34,7 +34,7 @@ const enShell = {
     menuLangSuffix: ', not in the menu YAML.',
     reloadPrefix: ' requires a server restart after changes; menu / focus can use ',
     reloadSuffix: '.',
-    fixedNote: 'Focus files are fixed to none / mob; there are 18 fixed menus. Neither can be added or removed.',
+    fixedNote: 'Focus files are fixed to none / mob / ore; there are 18 fixed menus. Neither can be added or removed.',
   },
   placeholder: {
     titleSuffix: 'Feature placeholder',
@@ -103,12 +103,12 @@ const enShell = {
     loadSample: 'Load sample',
     emptyTitle: 'Start your MyCompany project',
     emptyText:
-      'Import orders.yml, focus/*.yml and menu/*.yml from plugins/MyCompany/, or load the sample project semantically equivalent to plugin 0.8.50 (fixtures are upstream LF copies; 4 files lack a trailing newline and a single LF is appended on export).',
+      'Import orders.yml, focus/*.yml and menu/*.yml from plugins/MyCompany/, or load the sample project semantically equivalent to plugin 0.8.50 (fixtures are upstream LF copies; 3 files lack a trailing newline and a single LF is appended on export).',
     emptyImport: 'Import YAML files',
     emptyHint1: 'Click to select files or drag .yml / .yaml files into the window.',
     emptyHint2: 'The project is saved in browser localStorage automatically and survives refreshes.',
     emptyHint3: 'Unknown fields and unrecognized lines are preserved with warnings; nothing is silently dropped.',
-    versionLine: 'Spec baseline 6764e01 · MyCompany 0.8.50',
+    versionLine: 'Spec baseline 85e3947 · MyCompany 0.8.50',
     statFiles: 'Files',
     statOrders: 'Orders',
     statFocus: 'Focus files',

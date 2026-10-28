@@ -132,7 +132,7 @@ describe('导出阻断聚合', () => {
     const names = prepared.payloads.map((payload) => payload.filename);
     expect(names).toHaveLength(23);
     expect(new Set(names).size).toBe(23);
-    expect(names).toContain('focus.yml');
+    expect(names).toContain('focus-ore.yml');
     expect(names).toContain('menu-focus.yml');
     expect(names).toContain('orders.yml');
     expect(names).toContain('menu-orders.yml');

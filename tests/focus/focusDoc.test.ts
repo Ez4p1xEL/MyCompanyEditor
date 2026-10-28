@@ -222,8 +222,8 @@ describe('focus 编辑操作', () => {
     expect(reread.model.legacyNodeIds).toHaveLength(0);
   });
 
-  it('固定文件模板可创建 none/mob', () => {
-    for (const id of ['none', 'mob']) {
+  it('固定文件模板可创建 none/mob/ore', () => {
+    for (const id of ['none', 'mob', 'ore']) {
       const doc = createFixedFocusTemplate(id);
       expect(doc).not.toBeNull();
       const parsed = parseFocusFile(`focus/${id}.yml`, serializeFocus(doc!));

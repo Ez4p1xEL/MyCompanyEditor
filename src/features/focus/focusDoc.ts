@@ -92,7 +92,11 @@ export interface EffectGroupModel {
 
 export interface EffectModel {
   kind: ValueKind;
+  /** 按 EffectType 分组的通用模型；未知 effect 键仍在 unknown 中。 */
+  byType: Record<string, EffectGroupModel[]>;
+  /** 兼容旧代码：mob_drops_add 组。 */
   drops: EffectGroupModel[];
+  /** 兼容旧代码：mob_damage_multiply 组。 */
   damage: EffectGroupModel[];
   unknown: ExtraField[];
 }
@@ -337,7 +341,8 @@ function buildEffectGroups(node: Node | null | undefined): EffectGroupModel[] {
 
 function buildEffect(node: Node | null | undefined): EffectModel {
   const kind = valueKind(node);
-  const model: EffectModel = { kind, drops: [], damage: [], unknown: [] };
+  const byType = Object.fromEntries(EFFECT_KEYS.map((key) => [key, [] as EffectGroupModel[]]));
+  const model: EffectModel = { kind, byType, drops: [], damage: [], unknown: [] };
   if (!isMap(node)) return model;
   for (const pair of mapEntries(node)) {
     const key = keyString(pair.key);
@@ -346,8 +351,10 @@ function buildEffect(node: Node | null | undefined): EffectModel {
       model.unknown.push({ key, preview: preview(pair.value as Node | null) });
       continue;
     }
-    if (meta.kind === 'drops') model.drops = buildEffectGroups(pair.value as Node);
-    else model.damage = buildEffectGroups(pair.value as Node);
+    const groups = buildEffectGroups(pair.value as Node);
+    model.byType[key] = groups;
+    if (key === 'mob_drops_add') model.drops = groups;
+    if (key === 'mob_damage_multiply') model.damage = groups;
   }
   return model;
 }
@@ -835,6 +842,23 @@ expertise:
     condition: {}
     effect: {}
 `,
+  ore: `id: ore
+label: Ore
+description:
+  - 'Focus on mining ores'
+condition:
+  company_money: 60000
+expertise:
+  new_expertise:
+    label: 'New Expertise'
+    description: []
+    value_type: boolean
+    default:
+      value: 'false'
+    action: {}
+    condition: {}
+    effect: {}
+`,
 };
 
 export function createFixedFocusTemplate(id: string): Document | null {
@@ -869,5 +893,5 @@ export function isFixedFocusId(id: string): boolean {
 }
 
 export function titleForFocusId(id: string): string {
-  return id === 'none' ? 'None' : id === 'mob' ? 'Mob' : id;
+  return id === 'none' ? 'None' : id === 'mob' ? 'Mob' : id === 'ore' ? 'Ore' : id;
 }

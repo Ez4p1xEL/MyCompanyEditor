@@ -5,6 +5,7 @@ import { computed, ref, shallowRef, watch } from 'vue';
 import type { Document } from 'yaml';
 import { downloadTextFile } from '../../core/download';
 import { prepareExport } from '../../core/export';
+import { FIXED_FOCUS_PATHS } from '../../core/fileTypes';
 import { pushToast } from '../../core/toast';
 import { isBlockingIssue } from '../../core/validation';
 import { useProjectStore } from '../../store/project';
@@ -77,6 +78,13 @@ const dragState = ref<{ itemId: string; sourceSlot: number | null } | null>(null
 interface Cell {
   slot: number;
   items: MenuItemModel[];
+  auto?: boolean;
+}
+
+interface FocusPreviewEntry {
+  slot: number;
+  id: string;
+  item: MenuItemModel;
 }
 
 const menuFiles = computed(() =>
@@ -109,10 +117,67 @@ const rows = computed(() => previewSize.value / 9);
 const gridSizeInvalid = computed(
   () => !model.value.sizeNumber || !isValidMenuSize(model.value.sizeNumber),
 );
+const focusPerPage = computed(() => {
+  const option = model.value.options.find((entry) => entry.key === 'focus-per-page');
+  const value = option ? Number(option.raw) : 10;
+  return Number.isInteger(value) && value > 0 ? value : 10;
+});
+function focusCloneSlots(base: number, count: number): number[] {
+  // 与 GUIFocusList 一致：从模板槽位开始向右克隆，到达当前行可用末尾后
+  // 跳过左侧 distance 个槽位，从下一行同一列继续。
+  const distance = base % 9;
+  let slot = base;
+  const slots: number[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const rowEnd = (Math.floor(slot / 9) + 1) * 9 - distance;
+    if (slot >= rowEnd) slot += distance * 2;
+    slots.push(slot);
+    slot += 1;
+  }
+  return slots;
+}
+const focusPreview = computed<FocusPreviewEntry[]>(() => {
+  if (selectedId.value !== 'focus_list') return [];
+  // 与插件一致：只按实际存在的固定 focus 文件顺序克隆，缺一个不会留下空槽。
+  const presentPaths = FIXED_FOCUS_PATHS.filter((path) => Boolean(store.files[path]));
+  if (presentPaths.length === 0) return [];
+  const template = model.value.items.find((item) => item.id === 'focus');
+  const base = template ? itemSlots(template)[0] : undefined;
+  if (!template || base === undefined) return [];
+  const count = Math.min(presentPaths.length, focusPerPage.value);
+  const slots = focusCloneSlots(base, count);
+  return presentPaths
+    .slice(0, count)
+    .map((path, index) => {
+      const focusId = path.slice(path.lastIndexOf('/') + 1).replace(/\.yml$/, '');
+      const override = model.value.items.find((item) => item.id === `focus_${focusId}`);
+      return {
+        slot: slots[index]!,
+        id: `focus_${focusId}`,
+        // 覆盖项只改 material；name/lore 等文本始终沿用 focus 模板，不能复制覆盖项。
+        item: {
+          ...template,
+          id: `focus_${focusId}`,
+          material: override?.material ?? template.material,
+          slot: undefined,
+          slots: undefined,
+        },
+      };
+    })
+    .filter((entry) => entry.slot < previewSize.value);
+});
+const autoFocusSlots = computed(() => new Set(focusPreview.value.map((entry) => entry.slot)));
+const hiddenFocusIds = computed(() => {
+  if (focusPreview.value.length === 0) return new Set<string>();
+  return new Set([
+    'focus',
+    ...FIXED_FOCUS_PATHS.map((path) => `focus_${path.slice(path.lastIndexOf('/') + 1).replace(/\.yml$/, '')}`),
+  ]);
+});
 const occupancy = computed(() => {
   const map = new Map<number, MenuItemModel[]>();
   for (const item of model.value.items) {
-    if (item.id === 'default') continue;
+    if (item.id === 'default' || hiddenFocusIds.value.has(item.id)) continue;
     for (const slot of itemSlots(item)) {
       const list = map.get(slot) ?? [];
       list.push(item);
@@ -121,12 +186,17 @@ const occupancy = computed(() => {
   }
   return map;
 });
-const cells = computed<Cell[]>(() =>
-  Array.from({ length: previewSize.value }, (_, slot) => ({
-    slot,
-    items: occupancy.value.get(slot) ?? [],
-  })),
-);
+const cells = computed<Cell[]>(() => {
+  const previews = new Map(focusPreview.value.map((entry) => [entry.slot, entry]));
+  return Array.from({ length: previewSize.value }, (_, slot) => {
+    const preview = previews.get(slot);
+    return {
+      slot,
+      items: preview ? [preview.item] : (occupancy.value.get(slot) ?? []),
+      auto: Boolean(preview),
+    };
+  });
+});
 const selectedItemSlots = computed(() => (selectedItem.value ? itemSlots(selectedItem.value) : []));
 const filteredItems = computed(() => {
   const query = search.value.trim().toLowerCase();
@@ -268,7 +338,7 @@ function selectItem(id: string): void {
 
 function firstFreeSlot(): number | null {
   for (let slot = 0; slot < previewSize.value; slot += 1) {
-    if (!occupancy.value.has(slot)) return slot;
+    if (!occupancy.value.has(slot) && !autoFocusSlots.value.has(slot)) return slot;
   }
   return null;
 }
@@ -277,6 +347,10 @@ function assignItemToSlot(item: MenuItemModel, slot: number, options: { copy?: b
   if (!doc.value) return;
   if (item.id === 'default') {
     pushToast(tx('default 是空槽填充物，不占用具体槽位'), 'info');
+    return;
+  }
+  if (autoFocusSlots.value.has(slot)) {
+    pushToast(tx('该槽由插件自动排列，不会写入 YAML'), 'info');
     return;
   }
   const mode = itemSlotMode(item);
@@ -306,6 +380,11 @@ function assignItemToSlot(item: MenuItemModel, slot: number, options: { copy?: b
 
 function onSlotClick(slot: number): void {
   selectedSlot.value = slot;
+  if (autoFocusSlots.value.has(slot)) {
+    const entry = focusPreview.value.find((item) => item.slot === slot);
+    if (entry) selectedItemId.value = entry.id;
+    return;
+  }
   const current = selectedItem.value;
   if (current && current.id !== 'default') {
     assignItemToSlot(current, slot);
@@ -325,6 +404,11 @@ function onDragStart(item: MenuItemModel, sourceSlot: number | null, event: Drag
 
 function onDrop(slot: number, event: DragEvent): void {
   event.preventDefault();
+  if (autoFocusSlots.value.has(slot)) {
+    pushToast(tx('该槽由插件自动排列，不会写入 YAML'), 'info');
+    dragState.value = null;
+    return;
+  }
   let itemId = dragState.value?.itemId ?? '';
   let sourceSlot = dragState.value?.sourceSlot ?? null;
   const payload = event.dataTransfer?.getData('text/plain') ?? '';
@@ -841,11 +925,13 @@ ensureSelection();
                   conflict: cell.items.length > 1,
                   'selected-item': selectedItemSlots.includes(cell.slot),
                   'selected-slot': selectedSlot === cell.slot,
+                  auto: cell.auto,
                 }"
                 :data-slot="cell.slot"
+                :data-auto="cell.auto ? 'true' : undefined"
                 :title="
                   cell.items.length
-                    ? `#${cell.slot} · ${cell.items.map((item) => `${item.id} (${item.material})`).join(' / ')}`
+                    ? `${cell.auto ? tx('自动') + ' · ' : ''}#${cell.slot} · ${cell.items.map((item) => `${item.id} (${item.material})`).join(' / ')}`
                     : tx('＃{slot} · 空{fill}', { slot: cell.slot, fill: defaultFill ? tx(' · 填充 {material}', { material: defaultItem?.material ?? '' }) : '' })
                 "
                 draggable="false"
@@ -857,12 +943,13 @@ ensureSelection();
                 <template v-if="cell.items.length">
                   <span
                     class="slot-icon-wrap"
-                    draggable="true"
+                    :draggable="!cell.auto"
                     @dragstart.stop="onDragStart(cell.items[0]!, cell.slot, $event)"
                   >
                     <MenuIcon :material="cell.items[0]!.material" :size="34" />
                   </span>
                   <span class="slot-item-id">{{ cell.items[0]!.id }}</span>
+                  <span v-if="cell.auto" class="slot-auto-badge">{{ tx("自动") }}</span>
                   <span v-if="cell.items.length > 1" class="slot-conflict">!</span>
                 </template>
                 <template v-else-if="defaultFill">
@@ -877,7 +964,20 @@ ensureSelection();
               <span><i class="legend-dot occupied" /> {{ tx("已占用") }}</span>
               <span><i class="legend-dot default" /> {{ tx("default 填充") }}</span>
               <span><i class="legend-dot conflict" /> {{ tx("槽位冲突") }}</span>
+              <span><i class="legend-dot auto" /> {{ tx("自动排列") }}</span>
               <span>{{ tx("点击槽位分配当前物品；拖拽移动；Shift/Ctrl 拖拽复制。") }}</span>
+            </div>
+            <div v-if="selectedId === 'focus_list'" class="focus-auto-note" data-focus-preview>
+              <p class="field-label">{{ tx("自动排列预览") }}</p>
+              <p>
+                {{ tx("插件按固定顺序从 focus 模板槽位开始克隆；focus_ore 只覆盖 material，显示名沿用 focus 模板，不写入 slot。") }}
+              </p>
+              <p v-if="focusPreview.length" class="focus-auto-list">
+                <span v-for="entry in focusPreview" :key="entry.id" :data-focus-preview-slot="entry.slot">
+                  #{{ entry.slot }} · {{ entry.id }} ({{ entry.item.material }})
+                </span>
+              </p>
+              <p v-else>{{ tx("需要 focus 模板槽位和至少一个已载入的固定 focus 文件，才能生成自动排列。") }}</p>
             </div>
           </section>
 
@@ -1346,6 +1446,18 @@ ensureSelection();
 .chest-slot.selected-slot {
   box-shadow: inset 0 0 0 3px #ffd166;
 }
+.chest-slot.auto {
+  outline: 1px dashed #7ec8ff;
+}
+.slot-auto-badge {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  padding: 0 2px;
+  font-size: 8px;
+  color: #7ec8ff;
+  pointer-events: none;
+}
 .slot-number {
   position: absolute;
   top: 1px;
@@ -1411,6 +1523,30 @@ ensureSelection();
 }
 .legend-dot.conflict {
   background: #d64545;
+}
+.legend-dot.auto {
+  background: #7ec8ff;
+}
+.focus-auto-note {
+  margin: 0 10px 10px;
+  padding: 8px 10px;
+  border: 1px dashed #3c6f8f;
+  background: rgba(30, 70, 90, 0.25);
+  color: #cfe8f5;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.focus-auto-note p {
+  margin: 2px 0;
+}
+.focus-auto-list {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+}
+.focus-auto-list span {
+  color: #7ec8ff;
 }
 
 .menu-items {
@@ -1746,6 +1882,63 @@ ensureSelection();
   .menu-items {
     grid-column: 1 / -1;
     max-height: none;
+  }
+}
+@media (max-width: 768px) {
+  .menu-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .menu-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .menu-header-actions .mc-button {
+    flex: 1 1 auto;
+  }
+  .menu-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .menu-files,
+  .menu-items {
+    grid-column: 1 / -1;
+    max-height: none;
+    overflow: visible;
+  }
+  .menu-title-row {
+    flex-direction: column;
+  }
+  .menu-title-actions {
+    justify-content: flex-start;
+  }
+  .menu-props-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .options-head {
+    display: none;
+  }
+  .options-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .options-row .badge,
+  .options-row .mc-button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .chest-card {
+    overflow-x: auto;
+  }
+  .chest-grid {
+    grid-template-columns: repeat(9, minmax(34px, 1fr)) !important;
+    min-width: max-content;
+  }
+  .item-list {
+    max-height: none;
+  }
+  .item-editor-actions,
+  .slot-actions,
+  .material-presets {
+    flex-wrap: wrap;
   }
 }
 </style>

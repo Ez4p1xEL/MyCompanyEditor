@@ -50,7 +50,7 @@ export const CONDITION_TYPES: ConditionTypeMeta[] = [
     },
     kind: 'logs',
     get hint() {
-      return focusText('每行 “mob_kill_count,ENTITY,数值”；段数必须为 3，ENTITY 必须是大写枚举名。');
+      return focusText('每行 “mob_kill_count,ENTITY,数值” 或 “block_break_count,MATERIAL,数值”；段数必须为 3。mob_kill_count 的实体和 block_break_count 的方块 Material 都必须大写，不能写 ALL；方块计数不会累加到其他方块。');
     },
   },
 ];

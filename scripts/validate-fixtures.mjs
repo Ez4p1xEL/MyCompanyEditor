@@ -49,10 +49,10 @@ const MENU_IDS = [
 
 const EXPECTED_FILES = [
   'orders.yml',
-  'focus.yml',
   'menus.yml',
   'focus/none.yml',
   'focus/mob.yml',
+  'focus/ore.yml',
   ...MENU_IDS.map((id) => `menu/${id}.yml`),
 ].sort();
 
@@ -117,7 +117,7 @@ for (const file of files) {
     fail(`${file}: 含重复键：${parsed.duplicates.map((item) => item.key).join(', ')}`);
   }
   if (parsed.hadBom) fail(`${file}: 含 UTF-8 BOM`);
-  // 上游资源使用 CRLF（fixtures 与 6764e01 逐字节一致），导入时归一化即可；
+  // 上游资源与 85e3947 逐字节一致，导入时归一化即可；
   // 只要求编辑器导出结果为 LF（见下方 output 检查）。
   if (parsed.hadCrlf) normalizedCrlf += 1;
 

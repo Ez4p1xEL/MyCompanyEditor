@@ -24,9 +24,9 @@ describe('内置示例与全量 ZIP', () => {
     const samples = sampleFiles();
     expect(samples).toHaveLength(23);
     expect(samples.filter((file) => file.path === 'orders.yml')).toHaveLength(1);
-    expect(samples.filter((file) => file.path.startsWith('focus/') && file.path.endsWith('.yml'))).toHaveLength(2);
+    expect(samples.filter((file) => file.path.startsWith('focus/') && file.path.endsWith('.yml'))).toHaveLength(3);
     expect(samples.filter((file) => file.path.startsWith('menu/'))).toHaveLength(18);
-    expect(samples.some((file) => file.path === 'focus.yml')).toBe(true);
+    expect(samples.some((file) => file.path === 'focus.yml')).toBe(false);
     expect(samples.some((file) => file.path === 'menus.yml')).toBe(true);
   });
 
@@ -35,12 +35,13 @@ describe('内置示例与全量 ZIP', () => {
     store.importFiles(sampleFiles());
     const prepared = prepareProjectZip(store.fileList);
     expect(prepared.ok).toBe(true);
-    expect(prepared.entries).toHaveLength(21);
+    expect(prepared.entries).toHaveLength(22);
     expect(prepared.entries.map((entry) => entry.name).sort()).toEqual(
       [
         'orders.yml',
         'focus/mob.yml',
         'focus/none.yml',
+        'focus/ore.yml',
         ...Array.from({ length: 18 }, (_, index) => `menu/${[
           'area_list',
           'area_rent_market',
@@ -89,9 +90,9 @@ describe('内置示例与全量 ZIP', () => {
     const restored = useProjectStore();
     const plan = planYamlImports(reread.map((entry) => ({ path: entry.name, text: entry.text })));
     expect(plan.skipped).toHaveLength(0);
-    expect(plan.planned).toHaveLength(21);
+    expect(plan.planned).toHaveLength(22);
     for (const item of plan.planned) restored.upsertFile(item.path, item.text, item.kind);
-    expect(restored.fileList).toHaveLength(21);
+    expect(restored.fileList).toHaveLength(22);
     for (const entry of reread) {
       const original = parseYamlText(entry.text);
       const imported = parseYamlText(restored.files[entry.name]!.text);

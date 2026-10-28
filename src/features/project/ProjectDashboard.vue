@@ -6,7 +6,7 @@ import type { ProjectFile } from '../../core/types';
 import { downloadTextFile } from '../../core/download';
 import { useI18n } from '../../i18n';
 import { parseYamlText } from '../../core/yaml';
-import { MENU_IDS } from '../../core/fileTypes';
+import { FIXED_FOCUS_PATHS, MENU_IDS } from '../../core/fileTypes';
 import {
   buildProjectJson,
   collectProjectExportBlockers,
@@ -41,9 +41,9 @@ const busy = ref(false);
 const files = computed(() => store.fileList);
 const ordersFiles = computed(() => files.value.filter((file) => file.kind === 'orders'));
 const fixedFocusFiles = computed(() =>
-  ['focus/none.yml', 'focus/mob.yml']
-    .map((path) => store.files[path])
-    .filter((file) => Boolean(file) && file!.kind === 'focus'),
+  FIXED_FOCUS_PATHS.map((path) => store.files[path]).filter(
+    (file) => Boolean(file) && file!.kind === 'focus',
+  ),
 );
 const referenceFocus = computed(() => referenceFocusFiles(files.value));
 const menuCards = computed(() =>
@@ -437,10 +437,10 @@ function onDropZone(event: DragEvent): void {
         </section>
 
         <section class="project-card">
-          <h2>{{ t('shell.dashboard.focusTitle') }} <span class="count">{{ totalStats.focus }}/2</span></h2>
+          <h2>{{ t('shell.dashboard.focusTitle') }} <span class="count">{{ totalStats.focus }}/{{ FIXED_FOCUS_PATHS.length }}</span></h2>
           <div class="file-list">
             <button
-              v-for="path in ['focus/none.yml', 'focus/mob.yml']"
+              v-for="path in FIXED_FOCUS_PATHS"
               :key="path"
               class="file-card"
               :class="{ active: selectedPath === path, disabled: !store.files[path] }"

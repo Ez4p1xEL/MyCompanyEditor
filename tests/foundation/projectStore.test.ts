@@ -110,9 +110,9 @@ describe('项目 store', () => {
     expect(result.imported).toHaveLength(23);
     expect(store.fileList).toHaveLength(23);
     expect(store.filesByKind('orders')).toHaveLength(1);
-    expect(store.filesByKind('focus')).toHaveLength(2);
+    expect(store.filesByKind('focus')).toHaveLength(3);
     expect(store.filesByKind('menu')).toHaveLength(18);
-    expect(store.filesByKind('focus-tree')).toHaveLength(1);
+    expect(store.filesByKind('focus-tree')).toHaveLength(0);
     expect(store.filesByKind('menus-config')).toHaveLength(1);
   });
 

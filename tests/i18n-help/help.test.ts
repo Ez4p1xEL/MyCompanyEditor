@@ -12,6 +12,7 @@ import {
 } from '../../src/features/project/help';
 import enHelpMessages from '../../src/i18n/locales/en/help';
 import { checkCatalogAlignment, setLocale } from '../../src/i18n';
+import { conditionTypeMeta } from '../../src/features/focus/catalog/conditionTypes';
 import { useProjectStore } from '../../src/store/project';
 import { fixtureText } from '../foundation/fixtures';
 
@@ -48,6 +49,8 @@ describe('help i18n', () => {
     expect(helpTexts().join('\n')).not.toContain('item name');
     expect(helpTexts().join('\n')).toMatch(/Chest Menus?/);
     expect(helpTexts().join('\n')).not.toContain('Chest menus and');
+    expect(FOCUS_LIMITS[2]!.text).toContain('generate-default-config=true');
+    expect(FOCUS_LIMITS[2]!.text).toContain('label/description');
     expect(HELP_LABELS.activation).toBe('Activation');
     expect(HELP_LABELS.deployment).toBe('Deployment summary');
     expect(QUEST_TYPES[0]!.label).toBe('Break block');
@@ -70,6 +73,23 @@ describe('help i18n', () => {
     expect(ACTIVATION_ROWS[0]!.file).toBe('orders.yml');
     expect(DEPLOYMENT_STEPS[0]!.text).toContain('dist/node_modules');
     expect(DEPLOYMENT_STEPS[4]!.text).toContain('DNS');
+  });
+
+  it('company_log 提示同时包含两个计数日志与大小写规则', () => {
+    setLocale('zh-CN', { persist: false });
+    const zh = conditionTypeMeta('company_log')!.hint;
+    expect(zh).toContain('mob_kill_count,ENTITY');
+    expect(zh).toContain('block_break_count,MATERIAL');
+    expect(zh).toContain('大写');
+    expect(zh).toContain('不会累加');
+
+    setLocale('en', { persist: false });
+    const en = conditionTypeMeta('company_log')!.hint;
+    expect(en).not.toMatch(HAN);
+    expect(en).toContain('mob_kill_count,ENTITY');
+    expect(en).toContain('block_break_count,MATERIAL');
+    expect(en).toContain('uppercase');
+    expect(en).toContain('do not aggregate into other blocks');
   });
 
   it('ProjectDashboard en 帮助面板始终渲染且无中文，切 zh 恢复', async () => {

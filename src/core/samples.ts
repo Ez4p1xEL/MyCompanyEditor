@@ -1,9 +1,9 @@
 /**
  * 示例项目：直接以 ?raw 方式读取知识库 fixtures（只读，不复制、不修改）。
  *
- * fixtures 是上游 commit 6764e01 的 git blob（LF）副本；编辑器导出会统一为 LF 并在
- * 文件末尾补单个换行，因此对上游 blob 末尾无换行的 4 个文件
- * （orders.yml、focus.yml、menus.yml、menu/found.yml）导出字节数会比 blob 多 1 字节，
+ * fixtures 是上游 commit 85e3947 的 git blob（LF）副本；编辑器导出会统一为 LF 并在
+ * 文件末尾补单个换行，因此对上游 blob 末尾无换行的 3 个文件
+ * （orders.yml、menus.yml、menu/found.yml）导出字节数会比 blob 多 1 字节，
  * 内容语义等价，导出不保证字节级一致。
  */
 const RAW_FIXTURES = import.meta.glob('../../docs/fixtures/mycompany/**/*.yml', {

@@ -3,7 +3,7 @@
 MyCompany Minecraft 插件的**纯前端** YAML 编辑器：在浏览器中导入、可视化编辑、校验并导出
 `orders.yml`、`focus/*.yml` 与 `menu/*.yml`。所有解析与校验都在本地完成，不上传任何服务器。
 
-> 规范基准：上游 commit `6764e01473e9814f012dc6bdc2fde1fa0f5b0d0f`（MyCompany `0.8.50`，2026-10-23）。
+> 规范基准：上游 commit `85e3947`（MyCompany `0.8.50`，2026-10-23）。
 > 提交的仓库包含 `docs/fixtures/mycompany/`（23 个文件，只读）；完整知识库 `docs/mycompany-spec/`
 > 是本地开发资料，不随仓库提交（见 `.gitignore`）。
 
@@ -15,14 +15,14 @@ MyCompany Minecraft 插件的**纯前端** YAML 编辑器：在浏览器中导�
 | 能力 | 状态 |
 | --- | --- |
 | 中文应用壳、四个导航入口（项目工作台 / 订单 / 专精 / 菜单）、空状态 | ✅ |
-| 项目工作台：18 个固定菜单、none/mob 专精、orders 卡片与校验统计、跳转编辑 | ✅ |
+| 项目工作台：18 个固定菜单、none/mob/ore 专精、orders 卡片与校验统计、跳转编辑 | ✅ |
 | 订单可视化编辑：订单 / quest / reward 增删改排序、颜色预览、未知字段保留 | ✅ |
 | 专精可视化编辑：condition / action / effect / 默认值、value_type、依赖检查、固定列表保护 | ✅ |
 | 菜单可视化编辑：9×N 箱子网格、拖拽排版、slot/slots、材质与分页约束、语言片段 | ✅ |
 | YAML 引擎（注释保留、禁用锚点/别名、行列错误、parse→dump→parse 语义校验） | ✅ |
 | 文件选择器 / 拖拽 / 多选 / ZIP / 项目 JSON 导入，按文件名与内容识别 | ✅ |
 | 统一校验框架（`ValidationIssue` + `registerValidator`）、全局筛选与定位 | ✅ |
-| 单文件导出 + 全量 ZIP（orders.yml + focus/none.yml、mob.yml + 18 menu/*.yml） | ✅ |
+| 单文件导出 + 全量 ZIP（orders.yml + focus/none.yml、mob.yml、ore.yml + 18 menu/*.yml） | ✅ |
 | 项目 JSON（版本化）下载/恢复；localStorage 自动保存与刷新恢复 | ✅ |
 | 帮助面板：字段速查、插件硬限制、生效方式矩阵、部署摘要 | ✅ |
 | 构建与 GitHub Pages 部署（相对路径、`.nojekyll`、Actions workflow） | ✅ |
@@ -38,7 +38,7 @@ MyCompany Minecraft 插件的**纯前端** YAML 编辑器：在浏览器中导�
 - ZIP：`package.json` 含 `jszip@^3.10.1` 依赖；当前全量 ZIP 导出/导入由**内置 ZIP 实现**完成
   （导出 store 模式；导入兼容 store 与 deflate，deflate 通过浏览器 `DecompressionStream` 解压），
   运行时不调用 JSZip；早先 README 中的“JSZip 预留”说明已移除。
-- Vitest + jsdom：**19 个测试文件 / 168 用例**
+- Vitest + jsdom：**29 个测试文件 / 230 用例**
 - GitHub Pages：官方 Actions（`configure-pages` / `upload-pages-artifact` / `deploy-pages`）
 
 ## 快速开始
@@ -53,7 +53,7 @@ npm run dev     # 开发服务器，默认 http://localhost:5173
 常用命令：
 
 ```bash
-npm run test -- --run     # 单元/组件/集成测试（19 文件，168 用例）
+npm run test -- --run     # 单元/组件/集成测试（29 文件，230 用例）
 npm run validate:fixtures # 解析并往返校验 docs/fixtures/mycompany 下全部 YAML（23/23）
 npm run build             # 类型检查 + 生产构建，产物在 dist/
 npm run preview           # 本地预览 dist/
@@ -132,7 +132,7 @@ npm run preview           # 本地预览 dist/
   构建不依赖 `docs/` 路径；`docs/fixtures/mycompany/` 只读，仅作为知识库校验基准。
 - **不静默丢数据**：未知字段/未知段原样保留；YAML 引擎保留注释与键序，导出前会做一次
   “自解析回读 + 语义比较”，不一致则拒绝导出。
-- **ZIP 导出边界**：只导出 orders、focus 固定文件与 18 个菜单；`menus.yml`、`focus.yml`、
+- **ZIP 导出边界**：只导出 orders、focus 固定文件与 18 个菜单；`menus.yml`、遗留 `focus.yml`、
   参考 focus 不进入 ZIP，避免把插件不会加载的文件放进部署目录。
 - **语言文本边界**：菜单标题/物品名/lore 来自 `lang/<language>.yml`，不写入 `menu/*.yml`；
   语言片段只作为独立 YAML 片段导出，需手动合并到语言文件。
@@ -144,7 +144,7 @@ npm run preview           # 本地预览 dist/
 
 ## 规范基准
 
-编辑器行为依据上游 MyCompany `0.8.50` / commit `6764e01` 的 Java 源码与默认 YAML。
+编辑器行为依据上游 MyCompany `0.8.50` / commit `85e3947` 的 Java 源码与默认 YAML。
 完整知识库位于本地 `docs/mycompany-spec/`（不随仓库提交）；仓库保留
 `docs/fixtures/mycompany/` 作为测试与示例基准。运行时的校验规则实现在
 `src/features/orders|focus|menu/`。
@@ -174,6 +174,6 @@ npm run preview           # 本地预览 dist/
 ## 最终验证
 
 - `npm run build` 通过，产物在 `dist/`（含 `.nojekyll`，资源相对引用）。
-- `npm run test -- --run` 通过：**19 个测试文件 / 168 用例**。
+- `npm run test -- --run` 通过：**29 个测试文件 / 230 用例**。
 - `npm run validate:fixtures` 通过：**23/23** 个 fixture 解析并语义往返。
 - GitHub Pages 部署步骤见 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)。

@@ -22,7 +22,7 @@ describe('应用壳', () => {
       expect(text).toContain(label);
     }
     expect(text).toContain('载入示例');
-    expect(text).toContain('6764e01');
+    expect(text).toContain('85e3947');
     expect(text).toContain('0.8.50');
     wrapper.unmount();
   });

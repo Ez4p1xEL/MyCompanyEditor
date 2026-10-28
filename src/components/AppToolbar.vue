@@ -124,7 +124,7 @@ function clearProject(): void {
         </div>
       </details>
       <span class="version-badge">
-        {{ t('common.toolbar.version', { spec: '6764e01', plugin: '0.8.50' }) }}
+        {{ t('common.toolbar.version', { spec: '85e3947', plugin: '0.8.50' }) }}
       </span>
     </div>
   </header>

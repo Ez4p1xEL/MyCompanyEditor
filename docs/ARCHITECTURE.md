@@ -63,7 +63,7 @@ ExportDialog → collectExportBlockers(store.fileList)
 | --- | --- |
 | `src/core/types.ts` | 公共类型：`ProjectFile`、`ValidationIssue`、`FeatureModule`、`ImportResult` 等 |
 | `src/core/yaml.ts` | 统一 YAML 引擎：`parseYamlText` / `stringifyYamlDocument` / `documentsSemanticallyEqual` / `describeDocument` |
-| `src/core/fileTypes.ts` | 18 菜单 id / 2 focus id、路径归一化、类型识别、标准路径映射、类型中文名 |
+| `src/core/fileTypes.ts` | 18 菜单 id / 3 focus id、路径归一化、类型识别、标准路径映射、类型中文名 |
 | `src/core/projectFile.ts` | `createProjectFile`、项目/单文件内容指纹 |
 | `src/core/validation.ts` | 通用校验、`registerValidator` 扩展点、`validateProject` |
 | `src/core/export.ts` | 导出文件名规则、导出自检 |
@@ -221,8 +221,8 @@ registerValidator((context: ValidationContext): ValidationIssue[] => {
   任何一步失败都阻止下载并展示原因（`EXPORT_BLOCKED` / `EXPORT_SELF_CHECK`）。
 - 下载内容为 UTF-8 无 BOM、LF、末尾换行；文件名只是下载名，不改变项目内路径。
 - 成功后 `store.markExported(path)` 记录该文件指纹，工具栏“未导出修改”按文件粒度更新。
-- 示例项目直接读取 `docs/fixtures`（上游 LF git blob）；其中 4 个文件（`orders.yml`、
-  `focus.yml`、`menus.yml`、`menu/found.yml`）无末尾换行，编辑器导出会补单个 LF，
+- 示例项目直接读取 `docs/fixtures`（上游 LF git blob）；其中 3 个文件（`orders.yml`、
+  `menus.yml`、`menu/found.yml`）无末尾换行，编辑器导出会补单个 LF，
   因此按语义等价处理，而不是字节级一致。
 
 ## 9. 功能模块接入契约（t4/t6/t8/t10 必读）
@@ -255,7 +255,7 @@ export default feature;
 | 校验 | 通过 `registerValidator` 注册；返回 `ValidationIssue[]`，不得直接改 `ProjectFile.issues` |
 | 解析 | 复用 `core/yaml.ts` 的 `parseYamlText` / `describeDocument` / `Document#setIn` 等，禁止另起一套 parse→JSON→stringify |
 | 文本边界 | menu 文本在 `lang/<language>.yml`，编辑器只能提示来源，不得声称会随 menu 文件导出 |
-| 固定文件 | 不得删除/新增 18 个 `menu/*.yml`、`focus/none|mob.yml`、`orders.yml`（校验规则负责阻断） |
+| 固定文件 | 不得删除/新增 18 个 `menu/*.yml`、`focus/none|mob|ore.yml`、`orders.yml`（校验规则负责阻断） |
 
 t10 可用 `src/features/project/index.ts` 覆盖内置的项目总览；registry 会优先使用发现到的模块。
 

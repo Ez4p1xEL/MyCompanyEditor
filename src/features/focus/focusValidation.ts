@@ -12,17 +12,25 @@ import {
   type ParsedFocusFile,
 } from './focusDoc';
 import {
+  KNOWN_ITEM_TYPES,
   LOG_IDS,
   defaultValueError,
+  isAllOrBlock,
   isAllOrEntity,
+  isAllOrItemType,
   isAllOrMaterial,
+  isBlockMaterialName,
   isFocusValueType,
+  parseChanceRow,
   parseCompanyLogRow,
   parseDamageRow,
   parseDropRow,
+  parseDurabilityRow,
+  parseHasteRow,
   splitOrGroup,
 } from './focusConstants';
-import { ACTION_KEYS, EFFECT_KEYS, CONDITION_KEYS } from './catalog';
+import { ACTION_KEYS, EFFECT_KEYS, EFFECT_TYPES, CONDITION_KEYS } from './catalog';
+import type { EffectTypeMeta } from './catalog';
 import { ENTITY_TYPE_NAMES } from './data/minecraftEnums';
 
 export function actionTypeAllowedHint(keys: string[] = ACTION_KEYS): string {
@@ -230,7 +238,18 @@ function validateCondition(
           );
         }
         const entity = parsed.entity;
-        if (!ENTITY_TYPE_NAMES.has(entity)) {
+        if (parsed.logId === 'block_break_count') {
+          if (!isBlockMaterialName(entity)) {
+            issues.push(
+              block(
+                ctx.file,
+                'CON-07',
+                validationText("{p0}的 company_log 方块 “{p1}” 必须是大写、合法的方块 Material；ALL/小写/物品都会让计数永远不增长", { p0: ownerLabel, p1: entity }),
+                { ...base, fixHint: validationText("例如 STONE、COAL_ORE、DIAMOND_ORE（大写，不能用 ALL）") },
+              ),
+            );
+          }
+        } else if (!ENTITY_TYPE_NAMES.has(entity)) {
           issues.push(
             block(
               ctx.file,
@@ -387,93 +406,210 @@ function validateEffect(effect: EffectModelLike, ctx: RefContext): FocusIssue[] 
     );
   }
 
-  const checkGroups = (groups: EffectGroupModel[], key: 'drops' | 'damage') => {
+  const addChanceIssue = (code: string, effectName: string, raw: string): void => {
+    const chance = Number(raw);
+    if (!Number.isFinite(chance)) {
+      issues.push(
+        block(ctx.file, code, validationText("{p0} 的概率 “{p1}” 不是数字", { p0: effectName, p1: raw }), base),
+      );
+      return;
+    }
+    if (chance < 0 || chance > 100) {
+      issues.push(
+        block(ctx.file, code, validationText("{p0} 的概率 {p1} 必须在 0..100", { p0: effectName, p1: raw }), {
+          ...base,
+          fixHint: validationText("概率必须在 0..100（0.01% 精度）"),
+        }),
+      );
+      return;
+    }
+    if ((raw.split('.')[1] ?? '').length > 2) {
+      issues.push(
+        info(ctx.file, 'EFF-10', validationText("概率 {p0} 超过两位小数，判定精度为 0.01%", { p0: raw }), base),
+      );
+    }
+  };
+
+  const validateDropGroup = (meta: EffectTypeMeta, group: EffectGroupModel): void => {
+    const mob = meta.value === 'mob_drops_add';
+    const shapeCode = mob ? 'EFF-03' : 'EFF-14';
+    for (const row of group.rows) {
+      if (!row.isString) {
+        issues.push(
+          block(
+            ctx.file,
+            shapeCode,
+            validationText("{p0} 的组 “{p1}” 含非字符串参数行", { p0: meta.value, p1: group.entity }),
+            base,
+          ),
+        );
+        continue;
+      }
+      const parsed = parseDropRow(row.raw);
+      if (!parsed.valid) {
+        issues.push(
+          block(
+            ctx.file,
+            shapeCode,
+            validationText("{p0} 参数 “{p1}” 格式错误：{p2}", {
+              p0: meta.value,
+              p1: row.raw,
+              p2: parsed.reason ?? '需要 3 段',
+            }),
+            base,
+          ),
+        );
+        continue;
+      }
+      if (!isAllOrMaterial(parsed.item)) {
+        issues.push(
+          block(
+            ctx.file,
+            mob ? 'EFF-04' : 'EFF-14',
+            validationText("{p0} 物品 “{p1}” 非法：Material.getMaterial 返回 null 后会退化成对所有掉落生效", {
+              p0: meta.value,
+              p1: parsed.item,
+            }),
+            { ...base, fixHint: validationText("使用 Material 枚举名（不能带 minecraft: 前缀）或 ALL") },
+          ),
+        );
+      }
+      if (!/^-?\d+$/.test(parsed.amount)) {
+        issues.push(
+          block(
+            ctx.file,
+            mob ? 'EFF-05' : 'EFF-14',
+            validationText("{p0} 数量 “{p1}” 必须是整数", { p0: meta.value, p1: parsed.amount }),
+            base,
+          ),
+        );
+      } else if (Number(parsed.amount) < 0) {
+        issues.push(block(ctx.file, mob ? 'EFF-05' : 'EFF-14', validationText("{p0} 数量不能为负", { p0: meta.value }), base));
+      } else if (parsed.sign === '*' && Number(parsed.amount) === 0) {
+        issues.push(
+          block(
+            ctx.file,
+            'EFF-06',
+            validationText("{p0} 使用 *0，命中后掉落数量会被清零；编辑器阻止导出", { p0: meta.value }),
+            { ...base, fixHint: validationText("把 *0 改成 *1 或 +1") },
+          ),
+        );
+      }
+      const chance = Number(parsed.chance);
+      if (!Number.isFinite(chance)) {
+        issues.push(
+          block(
+            ctx.file,
+            shapeCode,
+            validationText("{p0} 概率 “{p1}” 不是数字", { p0: meta.value, p1: parsed.chance }),
+            base,
+          ),
+        );
+      } else if (chance < 0 || chance > 100) {
+        issues.push(
+          block(
+            ctx.file,
+            mob ? 'EFF-08' : 'EFF-14',
+            validationText("{p0} 概率 {p1} 必须在 0..100", { p0: meta.value, p1: parsed.chance }),
+            { ...base, fixHint: validationText("概率必须在 0..100") },
+          ),
+        );
+      } else if ((parsed.chance.split('.')[1] ?? '').length > 2) {
+        issues.push(
+          info(ctx.file, 'EFF-10', validationText("概率 {p0} 超过两位小数，判定精度为 0.01%", { p0: parsed.chance }), base),
+        );
+      }
+    }
+  };
+
+  for (const meta of EFFECT_TYPES) {
+    const groups =
+      effect.byType?.[meta.value] ??
+      (meta.value === 'mob_drops_add' ? effect.drops : meta.value === 'mob_damage_multiply' ? effect.damage : []);
     for (const group of groups) {
       if (group.valueKind !== 'seq') {
         issues.push(
           block(
             ctx.file,
             'EFF-11',
-            validationText("{p0} 的实体 “{p1}” 值必须是列表", { p0: key === 'drops' ? 'mob_drops_add' : 'mob_damage_multiply', p1: group.entity }),
+            validationText("{p0} 的组 “{p1}” 值必须是列表", { p0: meta.value, p1: group.entity }),
             base,
           ),
         );
         continue;
       }
-      if (!isAllOrEntity(group.entity)) {
-        issues.push(
-          block(
-            ctx.file,
-            'EFF-02',
-            validationText("effect 实体 key “{p0}” 必须是 ALL 或合法 EntityType（非法值启动即 IAE）", { p0: group.entity }),
-            { ...base, fixHint: validationText("例如 ALL、ZOMBIE、CREEPER") },
-          ),
-        );
+
+      if (meta.groupKind === 'entity') {
+        if (!isAllOrEntity(group.entity)) {
+          issues.push(
+            block(
+              ctx.file,
+              'EFF-02',
+              validationText("effect 实体 key “{p0}” 必须是 ALL 或合法 EntityType（非法值启动即 IAE）", { p0: group.entity }),
+              { ...base, fixHint: validationText("例如 ALL、ZOMBIE、CREEPER") },
+            ),
+          );
+        }
+      } else if (meta.groupKind === 'block') {
+        if (!isAllOrBlock(group.entity)) {
+          issues.push(
+            block(
+              ctx.file,
+              'EFF-13',
+              validationText("{p0} 的方块 key “{p1}” 必须是 ALL 或方块 Material；物品/未知 Material 会 null 并扩大范围", {
+                p0: meta.value,
+                p1: group.entity,
+              }),
+              { ...base, fixHint: validationText("例如 ALL、STONE、COAL_ORE、DEEPSLATE_IRON_ORE") },
+            ),
+          );
+        }
+      } else if (group.entity !== 'ALL' && !isAllOrMaterial(group.entity)) {
+        if (!isAllOrItemType(group.entity)) {
+          issues.push(
+            block(
+              ctx.file,
+              'EFF-13',
+              validationText("{p0} 的目标 key “{p1}” 必须是 ALL、物品 Material 或小写 item-type", {
+                p0: meta.value,
+                p1: group.entity,
+              }),
+              { ...base, fixHint: validationText("例如 ALL、DIAMOND_PICKAXE、pickaxe") },
+            ),
+          );
+        } else if (!(KNOWN_ITEM_TYPES as readonly string[]).includes(group.entity)) {
+          issues.push(
+            warn(
+              ctx.file,
+              'EFF-18',
+              validationText("{p0} 使用了未知 item-type 组 “{p1}”；插件只内置 pickaxe，其他组通常永远不匹配", {
+                p0: meta.value,
+                p1: group.entity,
+              }),
+              { ...base, fixHint: validationText("使用 pickaxe 或具体物品 Material") },
+            ),
+          );
+        }
       }
+
+      if (meta.rowKind === 'drop') {
+        validateDropGroup(meta, group);
+        continue;
+      }
+
       for (const row of group.rows) {
         if (!row.isString) {
           issues.push(
             block(
               ctx.file,
-              'EFF-03',
-              validationText("{p0} 的实体 “{p1}” 含非字符串参数行", { p0: key === 'drops' ? 'mob_drops_add' : 'mob_damage_multiply', p1: group.entity }),
+              meta.rowKind === 'damage' ? 'EFF-07' : meta.rowKind === 'chance' ? 'EFF-15' : meta.rowKind === 'haste' ? 'EFF-16' : 'EFF-17',
+              validationText("{p0} 的组 “{p1}” 含非字符串参数行", { p0: meta.value, p1: group.entity }),
               base,
             ),
           );
           continue;
         }
-        if (key === 'drops') {
-          const parsed = parseDropRow(row.raw);
-          if (!parsed.valid) {
-            issues.push(
-              block(
-                ctx.file,
-                'EFF-03',
-                validationText("mob_drops_add 参数 “{p0}” 格式错误：{p1}", { p0: row.raw, p1: parsed.reason ?? '需要 3 段' }),
-                base,
-              ),
-            );
-            continue;
-          }
-          if (!isAllOrMaterial(parsed.item)) {
-            issues.push(
-              block(
-                ctx.file,
-                'EFF-04',
-                validationText("mob_drops_add 物品 “{p0}” 非法：Material.getMaterial 返回 null 后会退化成对所有掉落生效", { p0: parsed.item }),
-                { ...base, fixHint: validationText("使用 Material 枚举名（不能带 minecraft: 前缀）或 ALL") },
-              ),
-            );
-          }
-          if (!/^-?\d+$/.test(parsed.amount)) {
-            issues.push(
-              block(ctx.file, 'EFF-05', validationText("mob_drops_add 数量 “{p0}” 必须是整数", { p0: parsed.amount }), base),
-            );
-          } else if (Number(parsed.amount) < 0) {
-            issues.push(block(ctx.file, 'EFF-05', validationText("mob_drops_add 数量不能为负"), base));
-          } else if (parsed.sign === '*' && Number(parsed.amount) === 0) {
-            issues.push(
-              warn(ctx.file, 'EFF-06', validationText("mob_drops_add 使用 *0，命中后掉落数量会被清零"), base),
-            );
-          }
-          const chance = Number(parsed.chance);
-          if (!Number.isFinite(chance)) {
-            issues.push(block(ctx.file, 'EFF-03', validationText("概率 “{p0}” 不是数字", { p0: parsed.chance }), base));
-          } else if (chance < 0 || chance > 100) {
-            issues.push(
-              warn(
-                ctx.file,
-                'EFF-08',
-                validationText("概率 {p0} 不在 0..100；≤0 永不触发，≥100 必触发（编辑器阻止导出）", { p0: parsed.chance }),
-                { ...base, blocking: true, fixHint: validationText("概率必须在 0..100") },
-              ),
-            );
-          } else if ((parsed.chance.split('.')[1] ?? '').length > 2) {
-            issues.push(
-              info(ctx.file, 'EFF-10', validationText("概率 {p0} 超过两位小数，判定精度为 0.01%", { p0: parsed.chance }), base),
-            );
-          }
-        } else {
+        if (meta.rowKind === 'damage') {
           const parsed = parseDamageRow(row.raw);
           if (!parsed.valid) {
             issues.push(
@@ -494,25 +630,80 @@ function validateEffect(effect: EffectModelLike, ctx: RefContext): FocusIssue[] 
           } else if (multiplier > 100) {
             issues.push(warn(ctx.file, 'EFF-09', validationText("倍率 {p0} >100，可能溢出", { p0: parsed.multiplier }), base));
           }
-          const chance = Number(parsed.chance);
-          if (!Number.isFinite(chance)) {
-            issues.push(block(ctx.file, 'EFF-07', validationText("概率 “{p0}” 不是数字", { p0: parsed.chance }), base));
-          } else if (chance < 0 || chance > 100) {
-            issues.push(
-              warn(ctx.file, 'EFF-08', validationText("概率 {p0} 不在 0..100（编辑器阻止导出）", { p0: parsed.chance }), {
-                ...base,
-                blocking: true,
-                fixHint: validationText("概率必须在 0..100"),
-              }),
-            );
-          }
+          addChanceIssue('EFF-08', 'mob_damage_multiply', parsed.chance);
+          continue;
         }
+
+        if (meta.rowKind === 'chance') {
+          const parsed = parseChanceRow(row.raw);
+          if (!parsed.valid) {
+            issues.push(
+              block(
+                ctx.file,
+                'EFF-15',
+                validationText("ore_smelt 参数 “{p0}” 格式错误：{p1}；行只能有 1 段概率", {
+                  p0: row.raw,
+                  p1: parsed.reason ?? '需要 1 段',
+                }),
+                base,
+              ),
+            );
+            continue;
+          }
+          addChanceIssue('EFF-15', 'ore_smelt', parsed.chance);
+          continue;
+        }
+
+        if (meta.rowKind === 'haste') {
+          const parsed = parseHasteRow(row.raw);
+          if (!parsed.valid) {
+            issues.push(
+              block(
+                ctx.file,
+                'EFF-16',
+                validationText("mining_haste 参数 “{p0}” 格式错误：{p1}", { p0: row.raw, p1: parsed.reason ?? '需要 3 段' }),
+                base,
+              ),
+            );
+            continue;
+          }
+          if (!/^\d+$/.test(parsed.amplifier)) {
+            issues.push(block(ctx.file, 'EFF-16', validationText("mining_haste 倍率 “{p0}” 必须是非负整数", { p0: parsed.amplifier }), base));
+          }
+          if (!/^\d+$/.test(parsed.duration) || Number(parsed.duration) <= 0) {
+            issues.push(block(ctx.file, 'EFF-16', validationText("mining_haste 时长 “{p0}” 必须是正整数 tick", { p0: parsed.duration }), base));
+          }
+          addChanceIssue('EFF-16', 'mining_haste', parsed.chance);
+          continue;
+        }
+
+        const parsed = parseDurabilityRow(row.raw);
+        if (!parsed.valid) {
+          issues.push(
+            block(
+              ctx.file,
+              'EFF-17',
+              validationText("item_durability_save 参数 “{p0}” 格式错误：{p1}", { p0: row.raw, p1: parsed.reason ?? '需要 2 段' }),
+              base,
+            ),
+          );
+          continue;
+        }
+        const percentage = Number(parsed.percentage);
+        if (!Number.isFinite(percentage)) {
+          issues.push(block(ctx.file, 'EFF-17', validationText("item_durability_save 比例 “{p0}” 不是数字", { p0: parsed.percentage }), base));
+        } else if (percentage < 0 || percentage > 1) {
+          issues.push(
+            block(ctx.file, 'EFF-17', validationText("item_durability_save 比例 {p0} 必须在 0..1", { p0: parsed.percentage }), {
+              ...base,
+              fixHint: validationText("1.0 表示完全免伤；0.2 表示保留 80% 耐久消耗"),
+            }),
+          );
+        }
+        addChanceIssue('EFF-17', 'item_durability_save', parsed.chance);
       }
     }
-  };
-
-  checkGroups(effect.drops, 'drops');
-  checkGroups(effect.damage, 'damage');
+  }
   return issues;
 }
 
@@ -532,6 +723,7 @@ interface ActionModelLike {
 }
 interface EffectModelLike {
   kind: ConditionModel['kind'];
+  byType?: Record<string, EffectGroupModel[]>;
   drops: EffectGroupModel[];
   damage: EffectGroupModel[];
   unknown: Array<{ key: string; preview: string }>;
@@ -603,7 +795,12 @@ function validateExpertise(
   issues.push(...validateEffect(node.effect, { file, nodeId: node.id, focusId, ownerIds, otherIds }));
 
   const hasAction = node.action.kind === 'map' && (node.action.consoleCommands.kind !== 'missing' || node.action.enableExpertise.kind !== 'missing' || node.action.disableExpertise.kind !== 'missing' || Boolean(node.action.setPriceGroup) || node.action.hasNone || node.action.unknown.length > 0);
-  const hasEffect = node.effect.kind === 'map' && (node.effect.drops.length > 0 || node.effect.damage.length > 0 || node.effect.unknown.length > 0);
+  const hasEffect =
+    node.effect.kind === 'map' &&
+    (Object.values(node.effect.byType ?? {}).some((groups) => groups.length > 0) ||
+      node.effect.drops.length > 0 ||
+      node.effect.damage.length > 0 ||
+      node.effect.unknown.length > 0);
   if (!hasAction && !hasEffect) {
     issues.push(info(file, 'FOC-16', validationText("expertise “{p0}” 没有 action/effect（纯前置节点）", { p0: node.id }), base));
   }
@@ -640,7 +837,7 @@ export function validateFocusModel(
       block(
         file,
         'FOC-01',
-        validationText("只能加载 focus/none.yml 与 focus/mob.yml；该文件不会被插件读取，不能导出到 focus/"),
+        validationText("只能加载 focus/none.yml、focus/mob.yml 与 focus/ore.yml；该文件不会被插件读取，不能导出到 focus/"),
         { ...base, fixHint: validationText("仅作为参考文件查看/迁移") },
       ),
     );
@@ -650,7 +847,7 @@ export function validateFocusModel(
     return issues;
   }
   if (model.idField) {
-    issues.push(info(file, 'FOC-03', validationText("文件里的 id 字段不会被读取；focus ID 以文件名（none/mob）为准"), base));
+    issues.push(info(file, 'FOC-03', validationText("文件里的 id 字段不会被读取；focus ID 以文件名（none/mob/ore）为准"), base));
   }
   if (model.condition.kind !== 'missing' && model.condition.kind !== 'null') {
     if (model.condition.kind !== 'map') {

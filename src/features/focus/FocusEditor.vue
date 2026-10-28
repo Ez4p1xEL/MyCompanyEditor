@@ -731,7 +731,7 @@ ensureSelection();
     <header class="focus-header">
       <div>
         <h1>{{ tx("专精编辑器") }}</h1>
-        <p class="focus-subtitle"> {{ tx("插件只加载") }} <code>focus/none.yml</code> {{ tx("与") }} <code>focus/mob.yml</code>{{ tx("（FixedFocusList 硬编码）。 修改后建议重启服务器；") }}<code>/mycompany reload</code> {{ tx("会重复 focus 列表。") }} </p>
+        <p class="focus-subtitle"> {{ tx("插件只加载") }} <code>focus/none.yml</code> {{ tx("与") }} <code>focus/mob.yml</code> {{ tx("与") }} <code>focus/ore.yml</code>{{ tx("（FixedFocusList 硬编码）。 修改后建议重启服务器；") }}<code>/mycompany reload</code> {{ tx("会重复 focus 列表。") }} </p>
       </div>
       <div class="focus-header-actions">
         <button class="mc-button small" data-action="focus-import" @click="triggerImport">{{ tx("导入 focus 文件") }}</button>
@@ -754,7 +754,7 @@ ensureSelection();
           class="mc-button small primary"
           data-action="focus-export-all"
           :disabled="fixedFiles.length === 0 || fixedBlockingIssues.length > 0"
-          :title="fixedBlockingIssues.length > 0 ? tx('固定文件存在 {count} 条错误', { count: fixedBlockingIssues.length }) : tx('导出 none.yml 与 mob.yml')"
+          :title="fixedBlockingIssues.length > 0 ? tx('固定文件存在 {count} 条错误', { count: fixedBlockingIssues.length }) : tx('导出 none.yml、mob.yml 与 ore.yml')"
           @click="exportAllFixed"
         > {{ tx("导出全部固定文件（") }}{{ fixedFiles.length }})
         </button>
@@ -763,8 +763,8 @@ ensureSelection();
     </header>
 
     <div class="focus-fixed-banner">
-      <strong>{{ tx("固定加载列表：none / mob") }}</strong>
-      <span> {{ tx("不能新增、删除或重命名这两个文件（删除后插件会在 reload 时重新生成默认文件，改动会丢失）。 其他导入的 focus 文件仅作为“参考文件”保存/查看，不会被加载，也不能导出到") }} <code>focus/</code>.
+      <strong>{{ tx("固定加载列表：none / mob / ore") }}</strong>
+      <span> {{ tx("不能新增、删除或重命名这三个文件（删除后插件会在 reload 时重新生成默认文件，改动会丢失）。 其他导入的 focus 文件仅作为“参考文件”保存/查看，不会被加载，也不能导出到") }} <code>focus/</code>.
       </span>
     </div>
 
@@ -814,7 +814,7 @@ ensureSelection();
           <button class="mc-button tiny" type="button" @click="removeReference(entry.path)">{{ tx("移除") }}</button>
         </div>
 
-        <p v-if="focusFiles.length === 0" class="muted"> {{ tx("还没有 focus 文件。可导入服务器文件，或先创建固定 none/mob 模板。") }} </p>
+        <p v-if="focusFiles.length === 0" class="muted"> {{ tx("还没有 focus 文件。可导入服务器文件，或先创建固定 none/mob/ore 模板。") }} </p>
       </aside>
 
       <aside class="expertise-list">
@@ -867,11 +867,12 @@ ensureSelection();
         <div v-if="!selectedPath || !file" class="focus-empty">
           <div class="focus-empty-icon" aria-hidden="true">🧭</div>
           <h2>{{ tx("选择或创建 focus 文件") }}</h2>
-          <p> {{ tx("固定可加载的只有") }} <code>focus/none.yml</code> {{ tx("与") }} <code>focus/mob.yml</code>{{ tx("。 导入其他 focus 文件会作为参考文件，不会被插件加载。") }} </p>
+          <p> {{ tx("固定可加载的只有") }} <code>focus/none.yml</code> {{ tx("与") }} <code>focus/mob.yml</code> {{ tx("与") }} <code>focus/ore.yml</code>{{ tx("。 导入其他 focus 文件会作为参考文件，不会被插件加载。") }} </p>
           <div class="focus-empty-actions">
             <button class="mc-button primary" data-action="focus-empty-import" @click="triggerImport">{{ tx("导入 focus 文件") }}</button>
             <button class="mc-button" data-action="focus-empty-create-none" @click="createFixed('none')">{{ tx("创建 none.yml") }}</button>
             <button class="mc-button" data-action="focus-empty-create-mob" @click="createFixed('mob')">{{ tx("创建 mob.yml") }}</button>
+            <button class="mc-button" data-action="focus-empty-create-ore" @click="createFixed('ore')">{{ tx("创建 ore.yml") }}</button>
           </div>
         </div>
 

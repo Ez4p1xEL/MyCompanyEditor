@@ -66,12 +66,19 @@ export function focusLimitText(kind: FocusLimitKind, keys: string[]): string {
 export const FOCUS_LIMITS = [
   {
     get text() {
-      return helpText('可加载 focus 文件固定为 focus/none.yml、focus/mob.yml，不能新增/删除/重命名。');
+      return helpText('可加载 focus 文件固定为 focus/none.yml、focus/mob.yml、focus/ore.yml，不能新增/删除/重命名。');
     },
   },
   {
     get text() {
-      return helpText('其他 focus 文件只作为参考，不进入导出 ZIP；可复制节点到 none/mob 迁移。');
+      return helpText('其他 focus 文件只作为参考，不进入导出 ZIP；可复制节点到 none/mob/ore 迁移。');
+    },
+  },
+  {
+    get text() {
+      return helpText(
+        'generate-default-config=true 时每次 createFiles 都会用 lang 覆盖 focus label/description 并保存 YAML；改 focus 文件文本不保证生效。',
+      );
     },
   },
   {

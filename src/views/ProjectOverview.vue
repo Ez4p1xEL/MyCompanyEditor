@@ -152,7 +152,7 @@ function exportSelected(): void {
         </div>
         <div class="stat-card">
           <span class="stat-label">{{ t('shell.overview.statFocus') }}</span><strong>{{ counts.focus }}</strong>
-          <span class="stat-note">focus/none.yml · focus/mob.yml</span>
+          <span class="stat-note">focus/none.yml · focus/mob.yml · focus/ore.yml</span>
         </div>
         <div class="stat-card">
           <span class="stat-label">{{ t('shell.overview.statMenus') }}</span><strong>{{ counts.menu }}</strong>

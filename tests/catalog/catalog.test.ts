@@ -73,7 +73,7 @@ describe('per-feature catalogs', () => {
     expect(conditionTypeMeta('nope')).toBeUndefined();
     expect(actionTypeMeta('CONSOLE_COMMAND')?.kind).toBe('stringList');
     expect(actionTypeMeta('nope')).toBeUndefined();
-    expect(effectTypeMeta('mob_drops_add')?.kind).toBe('drops');
+    expect(effectTypeMeta('mob_drops_add')?.rowKind).toBe('drop');
     expect(effectTypeMeta('nope')).toBeUndefined();
   });
 
@@ -195,11 +195,11 @@ describe('per-feature catalogs', () => {
     setLocale('en', { persist: false });
     expect(focusLimitText('condition', CONDITION_KEYS)).toBe('condition: company_money / expertise / expertises / company_log.');
     expect(focusLimitText('action', ACTION_KEYS)).toBe('action: console_command / enable_expertise / disable_expertise / set_price_group (none has no effect).');
-    expect(focusLimitText('effect', EFFECT_KEYS)).toBe('effect: mob_drops_add / mob_damage_multiply (keys must be lowercase).');
+    expect(focusLimitText('effect', EFFECT_KEYS)).toBe('effect: mob_drops_add / mob_damage_multiply / block_drops_add / ore_smelt / mining_haste / item_durability_save (keys must be lowercase).');
     expect(questTypeAllowedMessage('q1', 'bad')).toBe('Invalid type “bad” for quest “q1” (allowed: break_block/place_block/fish/mob_kill/feed)');
     expect(rewardTypeAllowedHint()).toBe('Choose item/company_income/money/experience/console_command from the dropdown');
     expect(actionTypeAllowedHint()).toBe('Allowed: console_command/enable_expertise/disable_expertise/set_price_group');
-    expect(effectTypeAllowedHint()).toBe('Only lowercase mob_drops_add / mob_damage_multiply are allowed');
+    expect(effectTypeAllowedHint()).toBe('Only lowercase mob_drops_add / mob_damage_multiply / block_drops_add / ore_smelt / mining_haste / item_durability_save are allowed');
     expect(conditionUnknownHint()).toBe('Delete it or use company_money/expertise/expertises/company_log');
 
     setLocale('zh-CN', { persist: false });

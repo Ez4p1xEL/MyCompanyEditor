@@ -31,7 +31,7 @@ const zhCNShell = {
     menuLangSuffix: '，不在 menu 文件内。',
     reloadPrefix: '修改后需重启服务器；menu / focus 可 ',
     reloadSuffix: '。',
-    fixedNote: '专精文件固定为 none / mob，菜单固定 18 个，均不能新增文件。',
+    fixedNote: '专精文件固定为 none / mob / ore，菜单固定 18 个，均不能新增文件。',
   },
   placeholder: {
     titleSuffix: '功能占位',
@@ -100,12 +100,12 @@ const zhCNShell = {
     loadSample: '载入示例',
     emptyTitle: '开始你的 MyCompany 项目',
     emptyText:
-      '导入服务器 plugins/MyCompany/ 下的 orders.yml、focus/*.yml、menu/*.yml，或先载入与插件 0.8.50 语义等价的示例项目（fixtures 为上游 LF 副本；其中 4 个文件无末尾换行，导出时会补单个 LF）。',
+      '导入服务器 plugins/MyCompany/ 下的 orders.yml、focus/*.yml、menu/*.yml，或先载入与插件 0.8.50 语义等价的示例项目（fixtures 为上游 LF 副本；其中 3 个文件无末尾换行，导出时会补单个 LF）。',
     emptyImport: '导入 YAML 文件',
     emptyHint1: '支持点击选择或直接拖拽 .yml / .yaml 文件到窗口。',
     emptyHint2: '项目自动保存在浏览器 localStorage，刷新不丢失。',
     emptyHint3: '未知字段与无法识别的行会原样保留，并给出警告，不会静默丢失。',
-    versionLine: '规范基准 6764e01 · MyCompany 0.8.50',
+    versionLine: '规范基准 85e3947 · MyCompany 0.8.50',
     statFiles: '文件',
     statOrders: '订单',
     statFocus: '专精文件',
